@@ -1,0 +1,27 @@
+---
+description: Keep detection, search, and HTR off the Qt UI thread
+globs: src/**/ui/**/*.py
+alwaysApply: false
+---
+
+# Qt UI thread
+
+The UI thread paints and displays hypotheses. Detection, join search, assembly search, and HTR run on local workers, through the same use cases as the CLI.
+
+Do:
+
+```python
+worker.finished.connect(view.show_hypotheses)
+worker.start()
+label.setText(f"Hypothesis rank {rank} · {epistemic_class}")
+```
+
+Don't:
+
+```python
+def on_click(self):
+    self.view.show(run_htr(image))
+    self.view.set_title("The reconstruction")
+```
+
+Visible labels say hypothesis and show epistemic class and text status.

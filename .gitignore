@@ -9,9 +9,17 @@ build/
 *.egg-info/
 .DS_Store
 
-# CRITICAL: real scans and project data never enter Git or agent context
+# CRITICAL: real scans and project data never enter Git or agent context.
+# data/, scans/, real_data/, and TIFF sources stay excluded.
 data/
 scans/
 real_data/
 *.tiff
 *.tif
+
+# Local model weights and generated exports stay on the machine.
+models/
+exports/
+*.onnx
+*.pt
+*.gguf

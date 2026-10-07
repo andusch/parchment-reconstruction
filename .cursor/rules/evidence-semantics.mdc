@@ -1,0 +1,48 @@
+---
+description: Keep observed, interpretation, and hypothesis distinct
+globs: docs/**/*.md,src/**/*.py,tests/**/*.py
+alwaysApply: false
+---
+
+# Evidence semantics
+
+Glossary: `docs/DATA_MODEL.md`.
+
+Epistemic classes are `observed`, `interpretation`, and `hypothesis`.
+
+`observed` is pixels, calibration, and fragment extent. It is never a reading or a placement.
+
+`interpretation` is OCR readings, human letter readings, detected outlines, and detected lines. Producer is `human`, `machine`, or `imported`.
+
+`hypothesis` is joins, assemblies, placements, and restorations.
+
+Grapheme text statuses are `human_read`, `unclear`, and `ocr_inferred`. Each is epistemic class `interpretation`. `human_read` is not epistemic class `observed`.
+
+- `ocr_inferred` covers HTR. Leave that stored name in place.
+- `missing` is not a grapheme status. A gap is a `GapRegion` on a page hypothesis.
+- Supplied text lives only on a scholarly restoration, in class `hypothesis`.
+- `human_validated` is a decision record. Acceptance does not re-type the reading.
+
+Do:
+
+```python
+reading.epistemic_class = "interpretation"
+reading.producer = "machine"
+reading.text_status = "ocr_inferred"
+human.epistemic_class = "interpretation"
+human.producer = "human"
+human.text_status = "human_read"
+human.run_id = None
+```
+
+Don't:
+
+```python
+reading.text_status = "htr_inferred"
+reading.text_status = "missing"
+reading.epistemic_class = "observed"  # a reading is not observed
+fragment.correct_join = join_id
+```
+
+Do not write that an algorithm recovered the original text or the true join.
+Do not treat an accept decision as observed fact.

@@ -1,0 +1,40 @@
+---
+description: Require provenance, and a seed whenever an algorithm draws random numbers
+globs: src/**/*.py
+alwaysApply: false
+---
+
+# Provenance and determinism
+
+A derived result carries source hashes, the full parameter blob and its SHA-256, algorithm name and version, model hash, code version, and decoder name and version. The blob is canonical JSON: sorted keys, UTF-8, no insignificant whitespace. Hash fields use the `sha256:` prefix. A hash that does not apply is the token `absent`, not an empty string. Hash-only parameters are not acceptable. `random_seed` is set when the algorithm used randomness and omitted when the algorithm is deterministic.
+
+Do:
+
+```python
+seed = request.seed  # None when the algorithm is deterministic
+rng = random.Random(seed) if seed is not None else None
+envelope = ProvenanceEnvelope(
+    source_hashes=hashes,
+    parameter_blob=canonical_json,
+    parameter_hash=params_hash,
+    algorithm_name="joins",
+    algorithm_version="1",
+    model_hash="absent",
+    random_seed=request.seed,  # omit when the algorithm is deterministic
+    code_version=version,
+    decoder_name="tiff",
+    decoder_version="1",
+)
+```
+
+Don't:
+
+```python
+random.random()
+try:
+    rank()
+except Exception:
+    return []
+```
+
+No bare `except`. No placeholder outline, reading, or success.

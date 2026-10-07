@@ -1,0 +1,26 @@
+---
+description: Migrate schema changes and stop before evidence or API changes
+globs: src/**/schema/**/*.py,src/**/models/**/*.py,docs/DATA_MODEL.md,docs/adr/**/*.md
+alwaysApply: false
+---
+
+# Schema and API changes
+
+A stored schema change includes a migration and migration tests.
+
+Stop and ask before changing public APIs, project format, privacy policy, or evidence semantics. Open questions live in `docs/OPEN_QUESTIONS.md`.
+
+Do:
+
+```python
+def migrate_0_to_1(project): ...
+def test_migrate_0_to_1(): ...
+```
+
+Don't:
+
+```python
+grapheme.text_status = "htr_inferred"  # rename with no decision
+```
+
+Do not add `truth`, `correct_join`, `original_text`, or unlabeled `confidence`.

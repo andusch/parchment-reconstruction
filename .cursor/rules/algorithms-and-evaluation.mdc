@@ -1,0 +1,27 @@
+---
+description: Compare algorithm changes on frozen benchmarks and keep score channels separate
+globs: src/**/algorithms/**/*.py,docs/ALGORITHM.md,docs/EVALUATION.md,tests/**/*.py
+alwaysApply: false
+---
+
+# Algorithms and evaluation
+
+An algorithm change writes a comparison under `benchmarks/` against the previous BenchmarkLabel record. That local write is publication. Ground truth is frozen in the BenchmarkLabel store before scoring, and it is not stored in the project evidence database.
+
+Do:
+
+```python
+report = compare(current=run, previous=benchmark_record, fixture=frozen)
+```
+
+Don't:
+
+```python
+fixture.ground_truth_joins = predicted_joins
+score = 0.6 * physical + 0.4 * language
+```
+
+Do not edit BenchmarkLabel rows to pass a check.
+Do not fuse `physical`, `htr`, and `language` unless ADR-0009 is accepted with an explicit fusion policy.
+Do not rank mixed hypothesis types in one order.
+K, N, and normalization are predeclared.
