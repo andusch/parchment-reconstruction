@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+
+# CRITICAL: real scans and project data never enter Git or agent context
+data/
+scans/
+real_data/
+*.tiff
+*.tif
