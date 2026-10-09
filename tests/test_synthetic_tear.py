@@ -1,13 +1,22 @@
-"""Synthetic leaf geometry and BenchmarkLabel writes."""
+"""Synthetic leaf geometry, fixture rasters, and BenchmarkLabel writes."""
 
 import dataclasses
 import json
+import struct
 from pathlib import Path
 
 import pytest
 
-from prw.identity import canonical_json
+from prw.identity import canonical_json, hash_value
+from prw.ingest import IntegrityFailure, VerifiedBytes, ingest_bytes
 from prw.synthetic_tear import (
+    DECODER_NAME,
+    DECODER_VERSION,
+    PAGE_IMAGE_HEIGHT,
+    PAGE_IMAGE_WIDTH,
+    TIFF_HEIGHT_OFFSET,
+    TIFF_MAGIC,
+    TIFF_WIDTH_OFFSET,
     SyntheticLeaf,
     erode_toward_centroid,
     generate_synthetic_leaf,
@@ -25,6 +34,7 @@ def _generate(
 ) -> SyntheticLeaf:
     return generate_synthetic_leaf(
         directory,
+        images_dir=directory.parent / f"{directory.name}-images",
         missing_fragment_percentage=missing_fragment_percentage,
         edge_erosion=edge_erosion,
         rotation=rotation,
@@ -32,6 +42,10 @@ def _generate(
         random_seed=random_seed,
         code_version="test-code",
     )
+
+
+def _images(directory: Path) -> Path:
+    return directory.parent / f"{directory.name}-images"
 
 
 def test_erosion_moves_a_vertex_toward_the_centroid() -> None:
@@ -116,8 +130,15 @@ def test_labels_are_written_only_under_benchmarks(tmp_path: Path) -> None:
     assert leaf.envelope.parameter_hash.startswith("sha256:")
     assert leaf.envelope.random_seed == 7
     assert leaf.envelope.model_hash == "absent"
-    assert leaf.envelope.decoder_name == "absent"
-    assert leaf.envelope.decoder_version == "absent"
+    assert leaf.envelope.decoder_name == DECODER_NAME
+    assert leaf.envelope.decoder_version == DECODER_VERSION
+    images = _images(benchmarks)
+    manifest_text = (images / "image_manifest.json").read_text()
+    assert "correct_join" not in manifest_text
+    assert "original_text" not in manifest_text
+    assert '"truth"' not in manifest_text
+    assert not (benchmarks / "page.tif").exists()
+    assert not (images / "labels.json").exists()
     lit = _generate(
         tmp_path / "lit",
         edge_erosion=0.25,
@@ -125,3 +146,72 @@ def test_labels_are_written_only_under_benchmarks(tmp_path: Path) -> None:
     )
     assert lit.fragments[0].local_polygon == leaf.fragments[0].local_polygon
     assert lit.envelope.parameter_hash != leaf.envelope.parameter_hash
+    leaf_page = (_images(benchmarks) / "page.tif").read_bytes()
+    lit_page = (_images(tmp_path / "lit") / "page.tif").read_bytes()
+    assert leaf_page != lit_page
+
+
+def _tiff_size(payload: bytes) -> tuple[int, int]:
+    assert payload[:4] == TIFF_MAGIC
+    width = struct.unpack_from("<I", payload, TIFF_WIDTH_OFFSET)[0]
+    height = struct.unpack_from("<I", payload, TIFF_HEIGHT_OFFSET)[0]
+    return width, height
+
+
+def test_same_seed_reproduces_tiff_bytes_and_manifest_digests(tmp_path: Path) -> None:
+    first = _generate(tmp_path / "one", lighting_variation=0.4)
+    second = _generate(tmp_path / "two", lighting_variation=0.4)
+    first_page = (_images(tmp_path / "one") / "page.tif").read_bytes()
+    second_page = (_images(tmp_path / "two") / "page.tif").read_bytes()
+    assert first_page == second_page
+    assert _tiff_size(first_page) == (PAGE_IMAGE_WIDTH, PAGE_IMAGE_HEIGHT)
+    assert [image.content_hash for image in first.images] == [
+        image.content_hash for image in second.images
+    ]
+    manifest_path = _images(tmp_path / "one") / "image_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    names = {entry["name"] for entry in manifest["images"]}
+    assert names == {image.name for image in first.images}
+    for entry in manifest["images"]:
+        payload = (_images(tmp_path / "one") / entry["name"]).read_bytes()
+        assert entry["content_hash"] == hash_value(payload)
+        assert entry["content_hash"].startswith("sha256:")
+        assert entry["byte_length"] == len(payload)
+        assert _tiff_size(payload) == (entry["width"], entry["height"])
+    assert "correct_join" not in json.dumps(manifest)
+
+
+def test_ingest_accepts_a_generated_tiff_and_rejects_a_tampered_byte(
+    tmp_path: Path,
+) -> None:
+    leaf = _generate(tmp_path / "benchmarks")
+    page = next(image for image in leaf.images if image.role == "page")
+    payload = bytearray((_images(tmp_path / "benchmarks") / page.name).read_bytes())
+    verified = ingest_bytes(payload, expected_hash=page.content_hash)
+    assert isinstance(verified, VerifiedBytes)
+    assert verified.content_hash == page.content_hash
+    payload[-1] ^= 0x01
+    failure = ingest_bytes(bytes(payload), expected_hash=page.content_hash)
+    assert isinstance(failure, IntegrityFailure)
+    assert failure.expected_hash == page.content_hash
+    assert failure.presented_hash != page.content_hash
+
+
+def test_fixture_destination_refuses_a_project_database(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    originals = project / "originals"
+    originals.mkdir(parents=True)
+    (project / "manifest.json").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="project evidence database"):
+        _generate(originals)
+    with pytest.raises(ValueError, match="project evidence database"):
+        generate_synthetic_leaf(
+            project / "benchmarks",
+            images_dir=project / "images",
+            missing_fragment_percentage=0.0,
+            edge_erosion=0.0,
+            rotation=0.0,
+            lighting_variation=0.0,
+            random_seed=1,
+            code_version="test-code",
+        )

@@ -1,0 +1,238 @@
+"""Headless console for ingest, frames, provenance, and fixture generation.
+
+The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``, and
+``prw.synthetic_tear``. Command names and flags are unfrozen. They are not
+a stable interface. The project format is still Q-ENG-01 in
+``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open a
+network connection, and does not write ``manifest.json`` or ``originals/``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+from prw.frames import CoordinateFrame
+from prw.identity import ABSENT, canonical_json, content_id
+from prw.ingest import (
+    IntegrityFailure,
+    UnsupportedMediaType,
+    VerifiedBytes,
+    ingest_bytes,
+)
+from prw.provenance import ProvenanceEnvelope
+from prw.synthetic_tear import generate_synthetic_leaf
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run one unfrozen command and return a process status."""
+    parser = _parser()
+    args = parser.parse_args(None if argv is None else list(argv))
+    try:
+        return int(_COMMANDS[args.command](args))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="prw",
+        description=(
+            "Headless calls for ingest, frames, provenance, and the synthetic "
+            "fixture generator. Command names are unfrozen and are not a "
+            "stable interface. The project format is still Q-ENG-01."
+        ),
+    )
+    commands = parser.add_subparsers(dest="command", required=True)
+
+    verify = commands.add_parser(
+        "verify",
+        help="Hash a TIFF and print the content hash or an IntegrityFailure.",
+    )
+    verify.add_argument("path", type=Path)
+    verify.add_argument("--expected", default=None)
+
+    frame = commands.add_parser(
+        "frame",
+        help="Print a fragment_local_mm frame for a polygon.",
+    )
+    frame.add_argument("--polygon", nargs="+", required=True, metavar="X,Y")
+
+    provenance = commands.add_parser(
+        "provenance",
+        help="Print one provenance envelope. Omit --random-seed when deterministic.",
+    )
+    provenance.add_argument("--algorithm-name", required=True)
+    provenance.add_argument("--algorithm-version", required=True)
+    provenance.add_argument("--code-version", required=True)
+    provenance.add_argument("--parameter", action="append", default=[])
+    provenance.add_argument("--decoder-name", default=ABSENT)
+    provenance.add_argument("--decoder-version", default=ABSENT)
+    provenance.add_argument("--random-seed", type=int, default=None)
+
+    generate = commands.add_parser(
+        "generate",
+        help="Write fixture images, the image manifest, and BenchmarkLabel rows.",
+    )
+    generate.add_argument("--benchmarks", type=Path, required=True)
+    generate.add_argument("--images", type=Path, required=True)
+    generate.add_argument("--missing-fragment-percentage", type=float, required=True)
+    generate.add_argument("--edge-erosion", type=float, required=True)
+    generate.add_argument("--rotation", type=float, required=True)
+    generate.add_argument("--lighting-variation", type=float, required=True)
+    generate.add_argument("--random-seed", type=int, required=True)
+    generate.add_argument("--code-version", required=True)
+    return parser
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    presented = args.path.read_bytes()
+    result = ingest_bytes(presented, expected_hash=args.expected)
+    if isinstance(result, VerifiedBytes):
+        _print_record(
+            {
+                "record": "VerifiedBytes",
+                "content_hash": result.content_hash,
+                "byte_length": result.byte_length,
+                "media_type": result.media_type,
+                "id": result.id,
+            }
+        )
+        return 0
+    if isinstance(result, IntegrityFailure):
+        _print_record(
+            {
+                "record": "IntegrityFailure",
+                "id": result.id,
+                "source_image_id": result.source_image_id,
+                "presented_hash": result.presented_hash,
+                "expected_hash": result.expected_hash,
+                "timestamp": result.timestamp,
+            }
+        )
+        return 1
+    if isinstance(result, UnsupportedMediaType):
+        _print_record(
+            {
+                "record": "UnsupportedMediaType",
+                "presented_hash": result.presented_hash,
+                "byte_length": result.byte_length,
+            }
+        )
+        return 1
+    raise ValueError("Ingest returned an unknown record.")
+
+
+def _cmd_frame(args: argparse.Namespace) -> int:
+    polygon = tuple(_parse_point(item) for item in args.polygon)
+    if len(polygon) < 3:
+        raise ValueError("A fragment polygon has at least three vertices.")
+    owner_id = content_id({"kind": "cli-fragment", "polygon": polygon})
+    outline_id = content_id({"kind": "cli-outline", "polygon": polygon})
+    frame = CoordinateFrame.fragment_local_mm(
+        owner_id=owner_id,
+        establishing_outline_revision_id=outline_id,
+        polygon=polygon,
+    )
+    payload = frame.content_mapping()
+    payload["id"] = frame.id
+    _print_record(payload)
+    return 0
+
+
+def _cmd_provenance(args: argparse.Namespace) -> int:
+    envelope = ProvenanceEnvelope.create(
+        source_hashes=(),
+        parameters=_parse_parameters(args.parameter),
+        algorithm_name=args.algorithm_name,
+        algorithm_version=args.algorithm_version,
+        code_version=args.code_version,
+        decoder_name=args.decoder_name,
+        decoder_version=args.decoder_version,
+        model_hash=ABSENT,
+        random_seed=args.random_seed,
+    )
+    _print_envelope(envelope)
+    return 0
+
+
+def _cmd_generate(args: argparse.Namespace) -> int:
+    leaf = generate_synthetic_leaf(
+        args.benchmarks,
+        images_dir=args.images,
+        missing_fragment_percentage=args.missing_fragment_percentage,
+        edge_erosion=args.edge_erosion,
+        rotation=args.rotation,
+        lighting_variation=args.lighting_variation,
+        random_seed=args.random_seed,
+        code_version=args.code_version,
+    )
+    provenance = leaf.envelope.content_mapping()
+    provenance["id"] = leaf.envelope.id
+    _print_record(
+        {
+            "provenance": provenance,
+            "images": [
+                {
+                    "name": image.name,
+                    "role": image.role,
+                    "content_hash": image.content_hash,
+                    "byte_length": image.byte_length,
+                }
+                for image in leaf.images
+            ],
+        }
+    )
+    return 0
+
+
+def _print_envelope(envelope: ProvenanceEnvelope) -> None:
+    payload = envelope.content_mapping()
+    payload["id"] = envelope.id
+    _print_record(payload)
+
+
+def _print_record(payload: dict[str, Any]) -> None:
+    print(canonical_json(payload))
+
+
+def _parse_parameters(pairs: Sequence[str]) -> dict[str, Any]:
+    parameters: dict[str, Any] = {}
+    for pair in pairs:
+        name, separator, raw = pair.partition("=")
+        if separator != "=" or name == "":
+            raise ValueError("A parameter is name=json.")
+        if name in parameters:
+            raise ValueError("A parameter name is given once.")
+        try:
+            parameters[name] = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("A parameter value is JSON.") from exc
+    return parameters
+
+
+def _parse_point(text: str) -> tuple[float, float]:
+    left, separator, right = text.partition(",")
+    if separator != "," or left == "" or right == "":
+        raise ValueError("A polygon vertex is x,y.")
+    try:
+        return (float(left), float(right))
+    except ValueError as exc:
+        raise ValueError("A polygon vertex is x,y.") from exc
+
+
+_COMMANDS = {
+    "verify": _cmd_verify,
+    "frame": _cmd_frame,
+    "provenance": _cmd_provenance,
+    "generate": _cmd_generate,
+}
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
