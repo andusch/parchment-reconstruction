@@ -2,7 +2,7 @@
 
 Local-first desktop application that ranks physical and textual reconstruction hypotheses for fragmented parchment. A scholar reviews every hypothesis. Algorithmic output remains a hypothesis about the page and the text.
 
-The Python package is `prw` (`src/prw`), distributed as `parchment-workbench`. It has no runtime dependencies. Internal helpers emit canonical JSON, `sha256:` digests, and content-derived UUIDv5 identifiers. In-memory provenance envelopes and an append-only status stream record parameters and negative knowledge. Those types are not a stable public API. Checks:
+The Python package is `prw` (`src/prw`), distributed as `parchment-workbench`. It has no runtime dependencies. Internal helpers emit canonical JSON, `sha256:` digests, and content-derived UUIDv5 identifiers. In-memory provenance envelopes and an append-only status stream record parameters and negative knowledge. In-memory coordinate frames name kind, origin, and axes. Those types are not a stable public API. Checks:
 
 ```text
 uv run ruff check .
