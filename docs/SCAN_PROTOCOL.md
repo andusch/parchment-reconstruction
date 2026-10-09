@@ -79,7 +79,7 @@ Each source image has a sidecar, or equivalent project fields, recorded outside 
 1. Compute SHA-256 over the original file bytes before any derivative is written.
 2. Store the digest and the byte length outside the image.
 3. Before any later read, recompute the digest and compare it.
-4. On mismatch, refuse the file as usable evidence and record an `IntegrityFailure`. Do not repair the bytes in place. `IntegrityFailure` and `ProtocolException` are both protocol events. Neither enters the evidence pool.
+4. On mismatch, refuse the file as usable evidence and record an `IntegrityFailure`. Do not repair the bytes in place. `IntegrityFailure` is not observed evidence. `IntegrityFailure` and `ProtocolException` are both protocol events. Neither enters the evidence pool.
 
 FR-1 in the [PRD](PRD.md) is this rule as a product requirement.
 
@@ -87,14 +87,14 @@ FR-1 in the [PRD](PRD.md) is this rule as a product requirement.
 
 A capture is acceptable for later millimetre work when all of the following hold:
 
-- The file is the lossless source of record, and its SHA-256 is stored outside the pixels.
+- The file is a lossless TIFF master, and its SHA-256 is stored outside the pixels.
 - The fragment lies fully in frame, with its edges visible against the background.
 - A scale target is in frame and unobstructed.
 - The face label is recorded.
 - The file name does not state a reconstruction conclusion.
 - Any deviation is stored as a protocol exception.
 
-A capture can still be imported when a checklist item fails. Ingest then stores the exception and withholds millimetre claims that the missing item would have supported.
+Ingest rejects any media type other than lossless TIFF. A capture that fails a checklist item other than the master can still be imported. Ingest then stores the exception and withholds millimetre claims that the missing item would have supported.
 
 ## Protocol exceptions
 

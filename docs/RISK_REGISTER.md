@@ -107,7 +107,7 @@ Each entry is open. P0 mitigations are documentary. Residual risk stays until a 
 - **Class.** Integrity
 - **What can go wrong.** Benchmark ground truth is adjusted to make a change look better.
 - **Consequence.** Reported improvement is not comparable to the previous record.
-- **Current mitigation.** [EVALUATION.md](EVALUATION.md) freezes `BenchmarkLabel` rows before scoring and requires a local comparison on the same fixture. Those labels stay outside the project evidence database. Agent rule 11 forbids altering them to pass checks.
+- **Current mitigation.** [EVALUATION.md](EVALUATION.md) freezes `BenchmarkLabel` rows before scoring and requires a local comparison under `benchmarks/` on the same fixture. Those labels stay outside the project evidence database. Agent rule 11 forbids altering them to pass checks.
 - **Residual status.** Open until the benchmark harness exists and the freeze is testable.
 
 ## R-14

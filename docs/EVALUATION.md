@@ -32,15 +32,19 @@ This document states how a later phase may claim that an algorithm change is an 
 
 Later tests may generate fixtures. P0 does not generate them and does not commit images.
 
+Fragment-local coordinates follow [ADR-0011](adr/0011-frame-conventions.md). `fragment_local_mm` has its origin at the centroid of the establishing outline polygon, `+x` right, `+y` down, in millimetres. `page_global_mm` uses the same axes. Placements and ground-truth transforms use that convention.
+
 A fixture includes:
 
 - A generated page image and the generator's fragment polygons.
 - The generator's cut curves, join set, and placements in `page_global_mm`.
 - The generator's scale, so millimetres per pixel are known.
-- The parameter blob and random seed that produced the fixture.
+- A parameter blob and `random_seed`. The generator uses randomness, so `random_seed` is required. The blob is canonical JSON: sorted keys, UTF-8, no insignificant whitespace. Its hash is `sha256:` followed by the lowercase hexadecimal digest. The blob names these configurable parameters: missing-fragment percentage, edge erosion, rotation, and lighting variation.
 - A manifest of SHA-256 digests for every generated image.
 
-The generator's joins and placements become `BenchmarkLabel` rows for that fixture. They are frozen when the fixture is accepted into the benchmark set. A later algorithm may read the images and the manifest. It does not read the `BenchmarkLabel` joins during inference. Synthetic outline agreement uses the generator's polygons and does not require a human annotator.
+A missing fragment is an omitted piece of the generated page. It is not grapheme status `missing`.
+
+Ground truth for the joins, the placements, and the generator page is written only to the [BenchmarkLabel](#benchmarklabel) store under `benchmarks/`. The contract forbids writing that ground truth into any project database. Solver code paths never read that store. A known join is a `BenchmarkLabel`. It is not a `correct_join` field on a project entity. The rows are frozen when the fixture is accepted into the benchmark set. A later algorithm may read the images and the manifest. It does not read the `BenchmarkLabel` joins during inference. Synthetic outline agreement uses the generator's polygons and does not require a human annotator.
 
 The fixture does not authorize a claim about a real manuscript.
 
