@@ -24,3 +24,4 @@ grapheme.text_status = "htr_inferred"  # rename with no decision
 ```
 
 Do not add `truth`, `correct_join`, `original_text`, or unlabeled `confidence`.
+Hypothesis content rows have no status column. Status is an append-only `StatusEvent`. The current status is the latest event.

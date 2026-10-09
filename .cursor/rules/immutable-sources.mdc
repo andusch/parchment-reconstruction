@@ -6,14 +6,20 @@ alwaysApply: false
 
 # Immutable sources
 
-Verify SHA-256 before using a source image. Write derivatives as new files that cite the source hash.
+Verify SHA-256 before using a source image. Write derivatives as new files that cite the source hash. A mismatch records an `IntegrityFailure`. That record is not observed evidence, and it does not enter the evidence pool. Do not repair the bytes in place.
 
 Do:
 
 ```python
 digest = "sha256:" + sha256(path.read_bytes()).hexdigest()
 if digest != record.content_hash:
-    raise ChecksumMismatch(record.id)
+    store.append(
+        IntegrityFailure(
+            source_image_id=record.id,
+            presented_hash=digest,
+            expected_hash=record.content_hash,
+        )
+    )
 ```
 
 Don't:

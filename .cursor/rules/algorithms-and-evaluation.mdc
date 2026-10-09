@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Algorithms and evaluation
 
-An algorithm change writes a comparison under `benchmarks/` against the previous BenchmarkLabel record. That local write is publication. Ground truth is frozen in the BenchmarkLabel store before scoring, and it is not stored in the project evidence database.
+An algorithm change writes a comparison under `benchmarks/` against the previous BenchmarkLabel record. That local write is publication. Ground truth is frozen in the BenchmarkLabel store before scoring, and it is not stored in the project evidence database. Solver code paths never read that store.
 
 Do:
 

@@ -13,18 +13,20 @@ Do:
 ```python
 seed = request.seed  # None when the algorithm is deterministic
 rng = random.Random(seed) if seed is not None else None
-envelope = ProvenanceEnvelope(
-    source_hashes=hashes,
-    parameter_blob=canonical_json,
-    parameter_hash=params_hash,
-    algorithm_name="joins",
-    algorithm_version="1",
-    model_hash="absent",
-    random_seed=request.seed,  # omit when the algorithm is deterministic
-    code_version=version,
-    decoder_name="tiff",
-    decoder_version="1",
-)
+fields = {
+    "source_hashes": hashes,
+    "parameter_blob": canonical_json,
+    "parameter_hash": params_hash,
+    "algorithm_name": "joins",
+    "algorithm_version": "1",
+    "model_hash": "absent",
+    "code_version": version,
+    "decoder_name": "tiff",
+    "decoder_version": "1",
+}
+if seed is not None:
+    fields["random_seed"] = seed
+envelope = ProvenanceEnvelope(**fields)
 ```
 
 Don't:
