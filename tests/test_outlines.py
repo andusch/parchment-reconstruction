@@ -5,6 +5,7 @@ import uuid
 
 import pytest
 
+import prw.outlines as outlines
 from prw.identity import ABSENT, content_id, hash_value
 from prw.outlines import Fragment, FragmentOutlineRevision, OutlineRevisionLog
 from prw.provenance import AlgorithmRun, ProvenanceEnvelope, StatusStream
@@ -95,8 +96,8 @@ def test_deterministic_envelope_has_no_seed_and_is_cited() -> None:
     assert outline.producer == "machine"
     names = {field.name for field in dataclasses.fields(outline)}
     assert "status" not in names
-    assert "operator_id" not in names
-    assert "session_id" not in names
+    assert outline.operator_id is None
+    assert outline.session_id is None
     assert outline.supersedes_id is None
     assert outline.id == content_id([run.id, outline.polygon])
 
@@ -144,3 +145,50 @@ def test_superseding_row_leaves_the_first_polygon_and_appends_proposed() -> None
     assert [row.id for row in log.rows] == [first.id, later.id]
     with pytest.raises(ValueError, match="new row"):
         log.insert(stream, first, recorded_at=_RECORDED, actor=str(run.id))
+
+
+def test_human_correction_is_a_new_interpretation_row() -> None:
+    envelope = _envelope()
+    run = _run(envelope)
+    fragment = Fragment.create(project_id=uuid.uuid4(), label="piece")
+    machine = _outline(envelope, run, fragment)
+    source = bytearray(b"synthetic-source")
+    source_before = bytes(source)
+    log = OutlineRevisionLog()
+    stream = StatusStream()
+    log.insert(stream, machine, recorded_at=_RECORDED, actor=str(run.id))
+    correction = machine.correct(
+        _LATER_TRIANGLE,
+        operator_id="scholar-1",
+        session_id="session-1",
+    )
+    assert type(correction) is FragmentOutlineRevision
+    assert correction.epistemic_class == "interpretation"
+    assert correction.producer == "human"
+    assert correction.run_id is None
+    assert correction.provenance_id is None
+    assert correction.operator_id == "scholar-1"
+    assert correction.session_id == "session-1"
+    assert correction.supersedes_id == machine.id
+    assert correction.id == content_id([correction.polygon])
+    assert correction.id != machine.id
+    assert correction.polygon == _LATER_TRIANGLE
+    assert machine.polygon == _TRIANGLE
+    assert machine.producer == "machine"
+    assert machine.epistemic_class == "interpretation"
+    assert machine.provenance_id == envelope.id
+    assert bytes(source) == source_before
+    names = {field.name for field in dataclasses.fields(correction)}
+    assert "status" not in names
+    proposed = log.insert(
+        stream,
+        correction,
+        recorded_at=_RECORDED,
+        actor="scholar-1",
+    )
+    assert proposed.status == "proposed"
+    assert stream.current_status(correction.id) == "proposed"
+    assert log.by_id(machine.id).polygon == _TRIANGLE
+    assert log.by_id(correction.id) is correction
+    assert fragment.identification_status == "detected"
+    assert not hasattr(outlines, "FragmentExtent")

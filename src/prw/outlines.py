@@ -1,14 +1,17 @@
-"""In-memory fragment identities and machine outline revisions.
+"""In-memory fragment identities and outline revisions.
 
 ``Fragment`` and ``FragmentOutlineRevision`` follow ``docs/DATA_MODEL.md``.
 A detector outline is epistemic class ``interpretation`` with producer
-``machine``. The outline id is a UUIDv5 over the run id and the polygon.
-``operator_id`` and ``session_id`` are absent. Inserting a
-``FragmentOutlineRevision`` appends one ``StatusEvent`` in the same write.
-That event is ``proposed``, unless the same write is a machine rejection,
-in which case the event is ``rejected``. The outline row has no status
-column. A later polygon is a new row with ``supersedes_id``. The previous
-row stays.
+``machine``. Its id is a UUIDv5 over the run id and the polygon, and
+``operator_id`` and ``session_id`` are absent. A human correction of that
+outline is a new ``FragmentOutlineRevision`` in the same class with
+producer ``human``, as ``docs/adr/0013-human-outline-correction.md``
+decides. ``run_id`` is null, there is no machine envelope, and the id is a
+UUIDv5 over the polygon. Inserting a ``FragmentOutlineRevision`` appends
+one ``StatusEvent`` in the same write. That event is ``proposed``, unless
+the same write is a machine rejection, in which case the event is
+``rejected``. The outline row has no status column. A later polygon is a
+new row with ``supersedes_id``. The previous row stays.
 
 These records are internal. They are not a stable public API, and they do
 not write a project directory.
@@ -67,6 +70,12 @@ def _require_label(value: object) -> str:
     return value
 
 
+def _require_text(value: object, label: str) -> str:
+    if not isinstance(value, str) or value == "":
+        raise ValueError(f"{label} is set on a human outline correction.")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class Fragment:
     """Identity of one physical piece. The label is not a reconstruction.
@@ -112,21 +121,24 @@ class Fragment:
 class FragmentOutlineRevision:
     """One polygon revision in a named frame.
 
-    See ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md``. The epistemic
-    class is ``interpretation`` and the producer is ``machine``. ``run_id``
-    is set. ``operator_id`` and ``session_id`` are absent. The id is a
-    UUIDv5 over the run id and the polygon. The row has no status column.
+    See ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md`` and
+    ``docs/adr/0013-human-outline-correction.md``. A detector outline is
+    ``interpretation`` with producer ``machine``, a set ``run_id``, and an
+    envelope. A human correction is a new row in that same class with
+    producer ``human``. The row has no status column.
     """
 
     fragment_id: uuid.UUID
     frame_id: uuid.UUID
     polygon: tuple[Point, ...]
-    producer: Literal["machine"]
-    run_id: uuid.UUID
+    producer: Literal["machine", "human"]
+    run_id: uuid.UUID | None
     epistemic_class: Literal["interpretation"]
-    provenance_id: uuid.UUID
+    provenance_id: uuid.UUID | None
     supersedes_id: uuid.UUID | None
     id: uuid.UUID
+    operator_id: str | None = None
+    session_id: str | None = None
 
     @classmethod
     def create(
@@ -141,7 +153,7 @@ class FragmentOutlineRevision:
         epistemic_class: str = "interpretation",
         supersedes_id: uuid.UUID | None = None,
     ) -> FragmentOutlineRevision:
-        """Build one immutable outline. A different class is rejected."""
+        """Build one immutable machine outline. A different class is rejected."""
         if epistemic_class != "interpretation":
             raise ValueError("A detector outline's epistemic class is interpretation.")
         if producer != "machine":
@@ -178,11 +190,13 @@ class FragmentOutlineRevision:
         run_id: uuid.UUID | None = None,
         provenance_id: uuid.UUID | None = None,
     ) -> FragmentOutlineRevision:
-        """Return a new revision. This polygon stays as it was.
+        """Return a new machine revision. This polygon stays as it was.
 
         The new row stores ``supersedes_id`` pointing at this id. See
         ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md``.
         """
+        if self.run_id is None or self.provenance_id is None:
+            raise ValueError("A machine revision supersedes with its run and envelope.")
         return FragmentOutlineRevision.create(
             fragment_id=self.fragment_id,
             frame_id=self.frame_id,
@@ -194,21 +208,69 @@ class FragmentOutlineRevision:
             supersedes_id=self.id,
         )
 
+    def correct(
+        self,
+        polygon: Sequence[object],
+        *,
+        operator_id: str,
+        session_id: str,
+    ) -> FragmentOutlineRevision:
+        """Return a human correction. This polygon stays as it was.
+
+        See ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md`` and
+        ``docs/adr/0013-human-outline-correction.md``. The new row is class
+        ``interpretation`` with producer ``human``. ``run_id`` is null.
+        There is no machine envelope. ``supersedes_id`` cites this revision.
+        """
+        stored_polygon = _polygon(polygon)
+        stored_operator = _require_text(operator_id, "operator_id")
+        stored_session = _require_text(session_id, "session_id")
+        revision_id = content_id([stored_polygon])
+        if revision_id == self.id:
+            raise ValueError("supersedes_id cites a previous outline revision.")
+        return FragmentOutlineRevision(
+            fragment_id=self.fragment_id,
+            frame_id=self.frame_id,
+            polygon=stored_polygon,
+            producer="human",
+            run_id=None,
+            epistemic_class="interpretation",
+            provenance_id=None,
+            supersedes_id=self.id,
+            operator_id=stored_operator,
+            session_id=stored_session,
+            id=revision_id,
+        )
+
     def id_inputs(self) -> list[Any]:
-        """Run id, then the polygon. The id is not the rest of the row."""
+        """Polygon, and the run id when that run produced the row."""
+        if self.run_id is None:
+            return [self.polygon]
         return [self.run_id, self.polygon]
 
     def __post_init__(self) -> None:
         if self.epistemic_class != "interpretation":
-            raise ValueError("A detector outline's epistemic class is interpretation.")
-        if self.producer != "machine":
-            raise ValueError("A detector outline has producer machine.")
+            raise ValueError("An outline revision's epistemic class is interpretation.")
+        if self.producer == "machine":
+            if self.run_id is None or self.provenance_id is None:
+                raise ValueError("A detector outline has a run and an envelope.")
+            if self.operator_id is not None or self.session_id is not None:
+                raise ValueError("A detector outline has producer machine.")
+        elif self.producer == "human":
+            if self.run_id is not None or self.provenance_id is not None:
+                raise ValueError("A human outline correction has no machine envelope.")
+            if not self.operator_id or not self.session_id:
+                raise ValueError(
+                    "A human outline correction sets operator_id and session_id."
+                )
+            if self.supersedes_id is None:
+                raise ValueError("supersedes_id cites the machine outline revision.")
+        else:
+            raise ValueError("An outline producer is machine or human.")
         if self.supersedes_id == self.id:
             raise ValueError("supersedes_id cites a previous outline revision.")
         if self.id != content_id(self.id_inputs()):
-            raise ValueError(
-                "FragmentOutlineRevision.id does not match the run id and polygon."
-            )
+            raise ValueError("FragmentOutlineRevision.id does not match its id inputs.")
 
 
 class OutlineRevisionLog:
