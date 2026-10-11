@@ -24,5 +24,5 @@ A reading stores `producer` as `human`, `machine`, or `imported`. The stored gra
 
 - [DATA_MODEL.md](../DATA_MODEL.md#glossary)
 - [Q-SCI-13](../OPEN_QUESTIONS.md#q-sci-13)
-- [Q-PRD-08](../OPEN_QUESTIONS.md#q-prd-08)
+- [Q-PRD-08](../OPEN_QUESTIONS.md#q-prd-08), closed by [ADR 0013](0013-human-outline-correction.md)
 - [Q-PRD-09](../OPEN_QUESTIONS.md#q-prd-09)

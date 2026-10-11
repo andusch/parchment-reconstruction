@@ -33,7 +33,7 @@ The target type and the acceptable scale error are [Q-SCI-10](SCAN_PROTOCOL.md#q
 ### 3. Segment fragments
 
 - **Inputs.** A verified source image.
-- **Outputs.** One or more `FragmentOutlineRevision` rows, epistemic class `interpretation`, producer `machine`, grouped by an `AlgorithmRun`.
+- **Outputs.** One `FragmentOutlineRevision` for a single 4-connected foreground component, epistemic class `interpretation`, producer `machine`, grouped by an `AlgorithmRun`. The implemented segmenter fails when it finds more than one component.
 - **Failure.** When segmentation fails, record the failed run under its own id, not the id a later completed run of the same inputs would take. Do not invent an outline. A group scan is `SourceImage.group_scan` from the [scan protocol](SCAN_PROTOCOL.md). It is not a confidence value, and it is not treated as metrologically equivalent to a one-fragment frame.
 
 

@@ -152,4 +152,4 @@ Is a human outline the ground truth for fragment detection, and what is the anno
 A single corrected outline can be one expert's trace. Calling it ground truth needs a protocol.
 
 - Options: one expert outline is the reference; two annotators and a stated agreement rule; synthetic generator polygons are the only reference until a protocol exists.
-- Blocks: a P2 accuracy claim against human outlines. Synthetic outline agreement against generator polygons can proceed without this question. Whether a corrected outline is observed evidence is [Q-PRD-08](PRD.md#q-prd-08).
+- Blocks: a P2 accuracy claim against human outlines. Synthetic outline agreement against generator polygons can proceed without this question. A corrected outline is `interpretation` under [ADR-0013](adr/0013-human-outline-correction.md), which closed [Q-PRD-08](PRD.md#q-prd-08). This question still blocks an accuracy claim against human outlines.

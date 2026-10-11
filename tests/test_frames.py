@@ -21,8 +21,20 @@ _SQUARE = ((0, 0), (2, 0), (2, 2), (0, 2))
 _LARGER = ((0, 0), (4, 0), (4, 4), (0, 4))
 
 
-def test_square_centroid_is_the_mean_of_its_vertices() -> None:
+_ELL = ((0, 0), (2, 0), (2, 1), (1, 1), (1, 2), (0, 2))
+
+
+def test_square_centroid_is_the_area_centroid() -> None:
     assert polygon_centroid(_SQUARE) == (1.0, 1.0)
+
+
+def test_area_centroid_ignores_a_closing_vertex_and_is_not_the_vertex_mean() -> None:
+    centroid = polygon_centroid(_ELL)
+    assert centroid == pytest.approx((5 / 6, 5 / 6))
+    assert centroid != (1.0, 1.0)
+    assert polygon_centroid((*_ELL, _ELL[0])) == pytest.approx(centroid)
+    with pytest.raises(ValueError, match="non-zero area"):
+        polygon_centroid(((0, 0), (1, 0), (2, 0)))
 
 
 def test_each_kind_stores_the_adr_0011_origin_and_axes() -> None:

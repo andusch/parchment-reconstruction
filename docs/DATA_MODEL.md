@@ -107,14 +107,14 @@ No entity in the project evidence database defines a field named `truth`, `corre
 
 ### SourceImage
 
-Observed evidence. Pixels are immutable. Ingest accepts a lossless TIFF only and records that media type. Any other media type is rejected. After ingest, the bytes in `originals/` are the authoritative source. Later reads use that copy.
+Observed evidence. Pixels are immutable. The product rule is a lossless TIFF. Current ingest accepts the 4-byte TIFF magic `II*\x00` or `MM\x00*` and records media type `image/tiff`. Any other prefix is rejected. The fixture reader enforces the uncompressed grayscale layout used by the synthetic writer. A general lossless-TIFF decoder stays behind [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05). After ingest, the bytes in `originals/` are the authoritative source. Later reads use that copy.
 
 | Field | Required content |
 | --- | --- |
 | `id` | UUIDv5 over the content hash |
 | `content_hash` | `sha256:` and the hexadecimal digest of the immutable bytes |
 | `byte_length` | Length of those bytes |
-| `media_type` | The lossless TIFF media type. Ingest enforces it |
+| `media_type` | `image/tiff`. Current ingest enforces the 4-byte magic. The fixture reader enforces the uncompressed grayscale layout |
 | `pixel_width`, `pixel_height` | Dimensions in pixels |
 | `fragment_id` | Fragment this capture belongs to. Two captures of one fragment are two rows, linked by this id and `face` |
 | `claimed_resolution_ppi` | Header or operator claim. The importer warns and leaves calibration null. It never populates calibration |
@@ -213,7 +213,7 @@ A free affine fit. It is stored so the fit can be audited. It is never used for 
 | `owner_id` | Source image, fragment, or the project page frame |
 | `establishing_outline_revision_id` | Set only for `fragment_local_mm`. The outline revision whose polygon centroid is the origin. Not updated when that revision is superseded |
 
-`source_pixels` is owned by one source image. Its origin is the top-left pixel. `fragment_local_mm` is owned by one fragment, and it does not exist until the establishing outline revision exists. Its origin is the centroid of the polygon cited by `establishing_outline_revision_id`, and that citation does not change. The mask is that polygon. It is not a `FragmentExtent`. `page_global_mm` is owned by the project, through the one `PageFrame`. Its origin is the corner with the smallest x and the smallest y, at coordinate (0, 0). Width and height ranges are measured from that origin. An assembly does not own a page frame. Origin and axes are [ADR-0011](adr/0011-frame-conventions.md). The fields on this row repeat that decision. They do not choose a different origin. [Q-SCI-11](OPEN_QUESTIONS.md#q-sci-11) and [Q-SCI-12](OPEN_QUESTIONS.md#q-sci-12) are closed.
+`source_pixels` is owned by one source image. Its origin is the top-left pixel. `fragment_local_mm` is owned by one fragment, and it does not exist until the establishing outline revision exists. Its origin is the area centroid of the polygon cited by `establishing_outline_revision_id`. A repeated closing vertex is not a second vertex. That citation does not change. The mask is that polygon. It is not a `FragmentExtent`. `page_global_mm` is owned by the project, through the one `PageFrame`. Its origin is the corner with the smallest x and the smallest y, at coordinate (0, 0). Width and height ranges are measured from that origin. An assembly does not own a page frame. Origin and axes are [ADR-0011](adr/0011-frame-conventions.md). The fields on this row repeat that decision. They do not choose a different origin. [Q-SCI-11](OPEN_QUESTIONS.md#q-sci-11) and [Q-SCI-12](OPEN_QUESTIONS.md#q-sci-12) are closed.
 
 ### PageFrame
 
@@ -269,15 +269,15 @@ Observed extent of a physical piece, bound to source bytes. A detector polygon i
 | `epistemic_class` | `observed` |
 | `provenance_id` | Envelope when the producer is `machine` |
 
-Whether a human correction of a detector outline is recorded here or as a new outline revision is [Q-PRD-08](PRD.md#q-prd-08).
+A human correction of a detector outline is not this row. It is a new `FragmentOutlineRevision` ([ADR-0013](adr/0013-human-outline-correction.md)).
 
 ### FragmentOutlineRevision
 
-A polygon in a named frame, with its producer and epistemic class. A detector outline is `interpretation` with `producer: machine`. Each row is one revision. Superseding writes a new row and a `supersedes_id` link. The previous row stays. The outline revision cited as `establishing_outline_revision_id` on that fragment's `fragment_local_mm` frame fixes the origin. Later revisions do not move the origin. Their polygons are stored in the existing frame.
+A polygon in a named frame, with its producer and epistemic class. A detector outline is `interpretation` with `producer: machine`. A human correction of that outline is a new row in class `interpretation` with `producer: human`, a null `run_id`, and `operator_id` and `session_id` set. `supersedes_id` cites the machine revision. That revision stays. The correction is not a `FragmentExtent` ([ADR-0013](adr/0013-human-outline-correction.md)). Each row is one revision. Superseding writes a new row and a `supersedes_id` link. The previous row stays. The outline revision cited as `establishing_outline_revision_id` on that fragment's `fragment_local_mm` frame fixes the origin. Later revisions do not move the origin. Their polygons are stored in the existing frame.
 
 | Field | Required content |
 | --- | --- |
-| `id` | UUIDv5 over the run id and the polygon when `run_id` is set. Otherwise over the polygon |
+| `id` | UUIDv5 over the run id and the polygon when `run_id` is set. When `run_id` is null, over `fragment_id`, `supersedes_id`, `operator_id`, `session_id`, and the polygon |
 | `fragment_id` | Fragment |
 | `frame_id` | Frame of the polygon |
 | `polygon` | Ordered vertices in that frame |

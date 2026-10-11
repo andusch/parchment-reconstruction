@@ -1,9 +1,11 @@
 """Ingest caller-supplied bytes.
 
 ``SourceImage`` and ``IntegrityFailure`` are defined in
-``docs/DATA_MODEL.md#sourceimage``. Ingest accepts a lossless TIFF only and
-records that media type. Any other media type is rejected. Recognition is
-the 4-byte magic ``II*\\x00`` or ``MM\\x00*``. A checksum mismatch is an
+``docs/DATA_MODEL.md#sourceimage``. The product rule is a lossless TIFF.
+Current ingest accepts the 4-byte magic ``II*\\x00`` or ``MM\\x00*`` and
+records media type ``image/tiff``. Any other prefix is rejected. The fixture
+reader enforces the uncompressed grayscale layout. A general lossless-TIFF
+decoder stays behind Q-ENG-05. A checksum mismatch is an
 ``IntegrityFailure``: a protocol event with a random UUID, the presented
 hash, the expected hash, and a UTC timestamp. It is not observed evidence,
 it is not a hypothesis, and it has no epistemic class. The presented bytes
