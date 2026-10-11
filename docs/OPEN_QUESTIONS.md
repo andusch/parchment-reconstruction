@@ -69,11 +69,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-PRD-08
 
+- **Status.** Closed by [ADR-0013](adr/0013-human-outline-correction.md).
 - **Owning document.** [PRD.md](PRD.md#q-prd-08)
-- **Question.** Is a corrected machine outline observed evidence?
-- **Why it matters.** A scholar tracing a visible edge may be recording what they see. The correction is a new row, and the machine polygon stays. Which class that new row has is the open question, and that class changes later benchmarks.
-- **Options.** The correction is a new `FragmentExtent` in class `observed`, and the machine outline revision is retained as `interpretation`; the correction is a new `FragmentOutlineRevision` in class `interpretation` with `producer: human`; overwrite is not allowed.
-- **Blocks.** Any P2 accuracy claim, and the evidence class of outline edits. Overwrite conflicts with the accepted append-only rule in [ADR-0006](adr/0006-append-only-hypotheses.md).
+- **Decision.** A human correction of a machine outline is a new `FragmentOutlineRevision` in class `interpretation` with `producer: human`. `run_id` is null. `operator_id` and `session_id` are set. There is no machine envelope. `supersedes_id` cites the machine revision, which stays. Source bytes stay. The correction is not a `FragmentExtent`. Acceptance does not re-type the machine outline. The row is not benchmark ground truth.
+- **Blocks.** Nothing for the evidence class of the correction. [P2-06](../tasks/P2-06.md) may store that row. An accuracy claim against human outlines stays blocked by [Q-SCI-17](EVALUATION.md#q-sci-17).
 
 ### Q-PRD-09
 
@@ -225,7 +224,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Is a human outline the ground truth for fragment detection, and what is the annotator protocol?
 - **Why it matters.** A single corrected outline can be one expert's trace. Calling it ground truth needs a protocol.
 - **Options.** One expert outline is the reference; two annotators and a stated agreement rule; synthetic generator polygons are the only reference until a protocol exists.
-- **Blocks.** A P2 accuracy claim against human outlines. Synthetic outline agreement against generator polygons can proceed without this question. Whether a corrected outline is observed evidence is [Q-PRD-08](PRD.md#q-prd-08).
+- **Blocks.** A P2 accuracy claim against human outlines. Synthetic outline agreement against generator polygons can proceed without this question. A corrected outline is `interpretation` under [ADR-0013](adr/0013-human-outline-correction.md), which closed [Q-PRD-08](PRD.md#q-prd-08). This question still blocks an accuracy claim against human outlines.
 
 ### Q-SCI-18
 

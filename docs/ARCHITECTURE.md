@@ -114,6 +114,7 @@ A runtime dependency is added only with a documented reason and license, and onl
 | Local Greek HTR runtime | [0010](adr/0010-local-greek-htr-runtime.md) | Proposed, blocked |
 | Frame conventions | [0011](adr/0011-frame-conventions.md) | Accepted |
 | Export types | [0012](adr/0012-export-types.md) | Accepted |
+| Human outline correction | [0013](adr/0013-human-outline-correction.md) | Accepted |
 
 ## Open questions
 

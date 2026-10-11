@@ -46,9 +46,9 @@ Packaging ([Q-ENG-02](ARCHITECTURE.md#q-eng-02)) is closed by [P1-01](../tasks/P
 
 **Non-goals.** An accuracy claim against human outlines, and any use of ruling, pricking, or hair/flesh side.
 
-**Blocked by.** [Q-PRD-08](PRD.md#q-prd-08) and [Q-SCI-17](EVALUATION.md#q-sci-17) for any accuracy claim. [Q-PRD-10](PRD.md#q-prd-10) for those extra physical features.
+**Blocked by.** [Q-SCI-17](EVALUATION.md#q-sci-17) for any accuracy claim. [Q-PRD-10](PRD.md#q-prd-10) for those extra physical features.
 
-Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) fixture TIFF samples, [P2-03](../tasks/P2-03.md) one-fragment segmentation, [P2-04](../tasks/P2-04.md) caller-supplied scale, [P2-05](../tasks/P2-05.md) synthetic outline agreement, [P2-06](../tasks/P2-06.md) human correction, and [P2-07](../tasks/P2-07.md) headless CLI. [P2-06](../tasks/P2-06.md) stays blocked until an ADR closes [Q-PRD-08](PRD.md#q-prd-08).
+Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) fixture TIFF samples, [P2-03](../tasks/P2-03.md) one-fragment segmentation, [P2-04](../tasks/P2-04.md) caller-supplied scale, [P2-05](../tasks/P2-05.md) synthetic outline agreement, [P2-06](../tasks/P2-06.md) human correction, and [P2-07](../tasks/P2-07.md) headless CLI. [P2-06](../tasks/P2-06.md) is Ready under [ADR-0013](adr/0013-human-outline-correction.md).
 
 ## P3
 

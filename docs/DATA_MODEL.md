@@ -269,11 +269,11 @@ Observed extent of a physical piece, bound to source bytes. A detector polygon i
 | `epistemic_class` | `observed` |
 | `provenance_id` | Envelope when the producer is `machine` |
 
-Whether a human correction of a detector outline is recorded here or as a new outline revision is [Q-PRD-08](PRD.md#q-prd-08).
+A human correction of a detector outline is not this row. It is a new `FragmentOutlineRevision` ([ADR-0013](adr/0013-human-outline-correction.md)).
 
 ### FragmentOutlineRevision
 
-A polygon in a named frame, with its producer and epistemic class. A detector outline is `interpretation` with `producer: machine`. Each row is one revision. Superseding writes a new row and a `supersedes_id` link. The previous row stays. The outline revision cited as `establishing_outline_revision_id` on that fragment's `fragment_local_mm` frame fixes the origin. Later revisions do not move the origin. Their polygons are stored in the existing frame.
+A polygon in a named frame, with its producer and epistemic class. A detector outline is `interpretation` with `producer: machine`. A human correction of that outline is a new row in class `interpretation` with `producer: human`, a null `run_id`, and `operator_id` and `session_id` set. `supersedes_id` cites the machine revision. That revision stays. The correction is not a `FragmentExtent` ([ADR-0013](adr/0013-human-outline-correction.md)). Each row is one revision. Superseding writes a new row and a `supersedes_id` link. The previous row stays. The outline revision cited as `establishing_outline_revision_id` on that fragment's `fragment_local_mm` frame fixes the origin. Later revisions do not move the origin. Their polygons are stored in the existing frame.
 
 | Field | Required content |
 | --- | --- |

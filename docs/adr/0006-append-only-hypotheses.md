@@ -19,13 +19,13 @@ Hypothesis content rows are immutable. A revision is a new row with a new conten
 
 ## Consequences
 
-- Human correction does not delete the machine outline. That interacts with [Q-PRD-08](../PRD.md#q-prd-08).
+- Human correction does not delete the machine outline. The class of that new row is [ADR 0013](0013-human-outline-correction.md), which closes [Q-PRD-08](../OPEN_QUESTIONS.md#q-prd-08).
 - An in-place change to `rejected` or `contested` is forbidden. Those words are statuses on the event stream.
 - P1 stores hypotheses only with this split between immutable content and the status stream.
 - P0 stores nothing.
 
 ## Related
 
-- [Q-PRD-08](../OPEN_QUESTIONS.md#q-prd-08)
+- [Q-PRD-08](../OPEN_QUESTIONS.md#q-prd-08), closed by [ADR 0013](0013-human-outline-correction.md)
 - [Q-PRD-09](../OPEN_QUESTIONS.md#q-prd-09)
 - [Q-ENG-01](../OPEN_QUESTIONS.md#q-eng-01)
