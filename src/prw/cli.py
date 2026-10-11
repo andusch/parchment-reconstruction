@@ -1,10 +1,12 @@
 """Headless console for ingest, frames, provenance, and fixture generation.
 
-The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``, and
-``prw.synthetic_tear``. Command names and flags are unfrozen. They are not
-a stable interface. The project format is still Q-ENG-01 in
+The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
+``prw.synthetic_tear``, ``prw.segment``, ``prw.scale``, and
+``prw.outline_agreement``. Command names and flags are unfrozen. They are
+not a stable interface. The project format is still Q-ENG-01 in
 ``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open a
-network connection, and does not write ``manifest.json`` or ``originals/``.
+network connection, does not start a worker, and does not write
+``manifest.json`` or ``originals/``.
 """
 
 from __future__ import annotations
@@ -13,9 +15,11 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from prw.fixture_tiff import UnsupportedFixtureLayout
 from prw.frames import CoordinateFrame
 from prw.identity import ABSENT, canonical_json, content_id
 from prw.ingest import (
@@ -24,7 +28,11 @@ from prw.ingest import (
     VerifiedBytes,
     ingest_bytes,
 )
+from prw.outline_agreement import write_outline_agreement
+from prw.outlines import FragmentOutlineRevision
 from prw.provenance import ProvenanceEnvelope
+from prw.scale import CallerScale, ScaledOutline, ScaleLog
+from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
 from prw.synthetic_tear import generate_synthetic_leaf
 
 
@@ -43,8 +51,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="prw",
         description=(
-            "Headless calls for ingest, frames, provenance, and the synthetic "
-            "fixture generator. Command names are unfrozen and are not a "
+            "Headless calls for ingest, frames, provenance, the synthetic "
+            "fixture generator, segmentation, caller-supplied scale, and "
+            "outline agreement. Command names are unfrozen and are not a "
             "stable interface. The project format is still Q-ENG-01."
         ),
     )
@@ -87,7 +96,33 @@ def _parser() -> argparse.ArgumentParser:
     generate.add_argument("--lighting-variation", type=float, required=True)
     generate.add_argument("--random-seed", type=int, required=True)
     generate.add_argument("--code-version", required=True)
+
+    segment = commands.add_parser(
+        "segment",
+        help="Print one fragment outline. Unfrozen; not a stable interface.",
+    )
+    _add_segment_arguments(segment)
+    segment.add_argument("--pixels-per-mm", type=float, default=None)
+    segment.add_argument("--uncertainty", type=float, default=None)
+
+    agree = commands.add_parser(
+        "agree",
+        help="Score caller polygons and write an IoU report. Unfrozen.",
+    )
+    agree.add_argument("--benchmarks", type=Path, required=True)
+    agree.add_argument("--predicted", nargs="+", required=True, metavar="X,Y")
+    agree.add_argument("--reference", nargs="+", required=True, metavar="X,Y")
+    agree.add_argument("--frame", required=True)
+    _add_segment_arguments(agree)
     return parser
+
+
+def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("path", type=Path)
+    parser.add_argument("--expected", default=None)
+    parser.add_argument("--label", required=True)
+    parser.add_argument("--foreground-threshold", type=int, required=True)
+    parser.add_argument("--code-version", required=True)
 
 
 def _cmd_verify(args: argparse.Namespace) -> int:
@@ -161,6 +196,166 @@ def _cmd_provenance(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_segment(args: argparse.Namespace) -> int:
+    presented = args.path.read_bytes()
+    segmented = _segment_presented(args, presented)
+    if not isinstance(segmented, SegmentedOutline):
+        _print_failure(segmented)
+        return 1
+    if args.pixels_per_mm is None and args.uncertainty is None:
+        _print_outline(
+            segmented.outline,
+            frame=segmented.frame.kind,
+            envelope=segmented.run.provenance,
+        )
+        return 0
+    if args.pixels_per_mm is None or args.uncertainty is None:
+        raise ValueError("pixels_per_mm and uncertainty are supplied together.")
+    scaled = ScaleLog().apply(
+        segmented.outline,
+        segmented.frame,
+        CallerScale(
+            pixels_per_mm=args.pixels_per_mm,
+            uncertainty=args.uncertainty,
+            producer="human",
+        ),
+        source_hashes=segmented.run.provenance.source_hashes,
+        code_version=segmented.run.provenance.code_version,
+        decoder_name=segmented.run.provenance.decoder_name,
+        decoder_version=segmented.run.provenance.decoder_version,
+        recorded_at=_utc_now(),
+    )
+    if not isinstance(scaled, ScaledOutline):
+        raise ValueError("A supplied scale stores a millimetre outline.")
+    _print_outline(
+        scaled.outline,
+        frame=scaled.frame.kind,
+        envelope=scaled.run.provenance,
+    )
+    return 0
+
+
+def _cmd_agree(args: argparse.Namespace) -> int:
+    _refuse_benchmark_label_join(args.benchmarks)
+    presented = args.path.read_bytes()
+    segmented = _segment_presented(args, presented)
+    if not isinstance(segmented, SegmentedOutline):
+        _print_failure(segmented)
+        return 1
+    report = write_outline_agreement(
+        args.benchmarks,
+        envelope=segmented.run.provenance,
+        frame=args.frame,
+        pairs=[(_polygon_arg(args.predicted), _polygon_arg(args.reference))],
+        fixture_image_hashes=segmented.run.provenance.source_hashes,
+    )
+    _print_record(json.loads(report.read_text(encoding="utf-8")))
+    return 0
+
+
+def _segment_presented(args: argparse.Namespace, presented: bytes) -> Any:
+    return SegmentationLog().segment(
+        presented,
+        project_id=content_id(["cli-segment", args.label]),
+        label=args.label,
+        foreground_threshold=args.foreground_threshold,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+        expected_hash=args.expected,
+    )
+
+
+def _print_outline(
+    outline: FragmentOutlineRevision,
+    *,
+    frame: str,
+    envelope: ProvenanceEnvelope,
+) -> None:
+    _print_record(
+        {
+            "record": "FragmentOutlineRevision",
+            "epistemic_class": outline.epistemic_class,
+            "producer": outline.producer,
+            "frame": frame,
+            "polygon": outline.polygon,
+            "id": outline.id,
+            "envelope": _envelope_payload(envelope),
+        }
+    )
+
+
+def _print_failure(result: object) -> None:
+    if isinstance(result, IntegrityFailure):
+        _print_record(
+            {
+                "record": "IntegrityFailure",
+                "id": result.id,
+                "source_image_id": result.source_image_id,
+                "presented_hash": result.presented_hash,
+                "expected_hash": result.expected_hash,
+                "timestamp": result.timestamp,
+            }
+        )
+        return
+    if isinstance(result, UnsupportedMediaType):
+        _print_record(
+            {
+                "record": "UnsupportedMediaType",
+                "presented_hash": result.presented_hash,
+                "byte_length": result.byte_length,
+            }
+        )
+        return
+    if isinstance(result, UnsupportedFixtureLayout):
+        _print_record({"record": "UnsupportedFixtureLayout", "kind": result.kind})
+        return
+    if isinstance(result, FailedSegmentation):
+        _print_record(
+            {
+                "record": "FailedSegmentation",
+                "kind": result.kind,
+                "run_id": result.run.id,
+            }
+        )
+        return
+    raise ValueError("Segmentation returned an unknown record.")
+
+
+def _refuse_benchmark_label_join(path: Path) -> None:
+    if not path.is_file():
+        return
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(
+            "An outline-agreement path is a benchmarks directory."
+        ) from exc
+    if _contains_join_label(loaded):
+        raise ValueError("A BenchmarkLabel join file is not an outline-agreement path.")
+    raise ValueError("An outline-agreement path is a benchmarks directory.")
+
+
+def _contains_join_label(value: object) -> bool:
+    if isinstance(value, dict):
+        return value.get("kind") == "join"
+    if isinstance(value, list):
+        return any(
+            isinstance(item, dict) and item.get("kind") == "join" for item in value
+        )
+    return False
+
+
+def _polygon_arg(values: Sequence[str]) -> tuple[tuple[float, float], ...]:
+    polygon = tuple(_parse_point(item) for item in values)
+    if len(polygon) < 3:
+        raise ValueError("A polygon has at least three vertices.")
+    return polygon
+
+
+def _utc_now() -> str:
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _cmd_generate(args: argparse.Namespace) -> int:
     leaf = generate_synthetic_leaf(
         args.benchmarks,
@@ -192,9 +387,13 @@ def _cmd_generate(args: argparse.Namespace) -> int:
 
 
 def _print_envelope(envelope: ProvenanceEnvelope) -> None:
+    _print_record(_envelope_payload(envelope))
+
+
+def _envelope_payload(envelope: ProvenanceEnvelope) -> dict[str, Any]:
     payload = envelope.content_mapping()
     payload["id"] = envelope.id
-    _print_record(payload)
+    return payload
 
 
 def _print_record(payload: dict[str, Any]) -> None:
@@ -231,6 +430,8 @@ _COMMANDS = {
     "frame": _cmd_frame,
     "provenance": _cmd_provenance,
     "generate": _cmd_generate,
+    "segment": _cmd_segment,
+    "agree": _cmd_agree,
 }
 
 
