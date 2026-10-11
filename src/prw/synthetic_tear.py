@@ -32,7 +32,9 @@ and not an approved decoder for arbitrary scans (``Q-ENG-05`` stays open):
 - The page image is ``PAGE_IMAGE_WIDTH`` by ``PAGE_IMAGE_HEIGHT`` pixels.
   Those counts are the page millimetres divided by ``MILLIMETRES_PER_PIXEL``.
   A fragment image is the axis-aligned bounds of the page pixels whose
-  centers lie inside that fragment's eroded polygon.
+  centers lie inside that fragment's placed polygon. The placement rotates
+  the eroded local polygon about its centroid, then adds that centroid.
+  Positive rotation sends ``+x`` toward ``+y``.
 
 Joins, placements, and the generator page are written only under the
 caller-supplied ``benchmarks/`` directory. The image manifest lists digests
@@ -52,7 +54,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
-from prw.frames import CoordinateFrame
+from prw.frames import CoordinateFrame, polygon_centroid
 from prw.identity import ABSENT, canonical_json_bytes, content_id, hash_value
 from prw.provenance import ProvenanceEnvelope
 
@@ -116,7 +118,11 @@ class CutCurve:
 
 @dataclass(frozen=True, slots=True)
 class FragmentGeometry:
-    """One emitted piece. ``local_polygon`` is fragment-local and eroded."""
+    """One emitted piece.
+
+    ``local_polygon`` is the eroded mask in ``fragment_local_mm``.
+    ``page_polygon`` is that mask after the recorded placement.
+    """
 
     id: uuid.UUID
     outline_revision_id: uuid.UUID
@@ -221,9 +227,11 @@ def generate_synthetic_leaf(
     """Generate one leaf, its TIFF bytes, and its BenchmarkLabel records.
 
     ``lighting_variation`` changes the per-fragment raster gain and the
-    parameter hash. It does not change the polygons. ``random_seed`` chooses
-    the cut jitter and which pieces the missing-fragment percentage omits.
-    The same seed and parameters reproduce the same TIFF bytes.
+    parameter hash. It does not change the polygons. ``rotation`` changes the
+    painted page polygon and the TIFF bytes. It does not change
+    ``local_polygon``. ``random_seed`` chooses the cut jitter and which
+    pieces the missing-fragment percentage omits. The same seed and
+    parameters reproduce the same TIFF bytes.
     """
     require_fixture_destination(benchmarks_dir)
     require_fixture_destination(images_dir)
@@ -285,12 +293,13 @@ def _build_leaf(
     vertical = _cut_curve(((cut_x, 0.0), (cut_x, PAGE_HEIGHT_MM)))
     horizontal = _cut_curve(((0.0, cut_y), (PAGE_WIDTH_MM, cut_y)))
     pieces = _rectangles(cut_x, cut_y)
-    fragments: list[FragmentGeometry] = []
-    for index, page_polygon in enumerate(pieces):
+    indexed: dict[int, FragmentGeometry] = {}
+    for index, cut_polygon in enumerate(pieces):
         if index in omitted:
             continue
-        fragments.append(_fragment(page_polygon, edge_erosion))
-    joins = _joins(fragments, pieces, omitted, vertical, horizontal)
+        indexed[index] = _fragment(cut_polygon, edge_erosion, rotation)
+    fragments = tuple(indexed[index] for index in sorted(indexed))
+    joins = _joins(indexed, omitted, vertical, horizontal)
     placements = tuple(_placement(fragment, rotation) for fragment in fragments)
     page = _page_label(tuple(fragment.id for fragment in fragments))
     fixture_id = content_id(
@@ -310,21 +319,25 @@ def _build_leaf(
     )
 
 
-def _fragment(page_polygon: tuple[Point, ...], edge_erosion: float) -> FragmentGeometry:
-    centroid = _centroid(page_polygon)
-    uneroded_local = _to_local(page_polygon, centroid)
-    eroded_page = erode_toward_centroid(page_polygon, edge_erosion)
+def _fragment(
+    cut_polygon: tuple[Point, ...],
+    edge_erosion: float,
+    rotation: float,
+) -> FragmentGeometry:
+    eroded_page = erode_toward_centroid(cut_polygon, edge_erosion)
+    centroid = _centroid(eroded_page)
     local_polygon = _to_local(eroded_page, centroid)
+    page_polygon = _place(local_polygon, rotation, centroid)
     fragment_id = content_id(
         {"kind": "fragment", "local_polygon": local_polygon, "page_centroid": centroid}
     )
     outline_revision_id = content_id(
-        {"kind": "outline", "local_polygon": uneroded_local}
+        {"kind": "outline", "local_polygon": local_polygon}
     )
     frame = CoordinateFrame.fragment_local_mm(
         owner_id=fragment_id,
         establishing_outline_revision_id=outline_revision_id,
-        polygon=uneroded_local,
+        polygon=local_polygon,
     )
     return FragmentGeometry(
         id=fragment_id,
@@ -336,14 +349,33 @@ def _fragment(page_polygon: tuple[Point, ...], edge_erosion: float) -> FragmentG
     )
 
 
+def _place(
+    local_polygon: Sequence[Point],
+    rotation: float,
+    centroid: Point,
+) -> tuple[Point, ...]:
+    """Rotate about the local origin, then add the page centroid.
+
+    Positive rotation sends ``+x`` toward ``+y``.
+    """
+    cosine = math.cos(rotation)
+    sine = math.sin(rotation)
+    origin_x, origin_y = centroid
+    return tuple(
+        (
+            x_coord * cosine - y_coord * sine + origin_x,
+            x_coord * sine + y_coord * cosine + origin_y,
+        )
+        for x_coord, y_coord in local_polygon
+    )
+
+
 def _joins(
-    fragments: Sequence[FragmentGeometry],
-    pieces: Sequence[tuple[Point, ...]],
+    fragments: dict[int, FragmentGeometry],
     omitted: set[int],
     vertical: CutCurve,
     horizontal: CutCurve,
 ) -> tuple[JoinLabel, ...]:
-    by_polygon = {fragment.page_polygon: fragment for fragment in fragments}
     adjacent = (
         (0, 1, vertical.id),
         (2, 3, vertical.id),
@@ -354,8 +386,8 @@ def _joins(
     for left, right, cut_id in adjacent:
         if left in omitted or right in omitted:
             continue
-        first = by_polygon[pieces[left]]
-        second = by_polygon[pieces[right]]
+        first = fragments[left]
+        second = fragments[right]
         earlier, later = sorted((first.id, second.id), key=str)
         ordered = (earlier, later)
         body = {
@@ -585,21 +617,34 @@ def _page_samples(
     return bytes(samples)
 
 
+def fragment_polygon_in_source_pixels(
+    page_polygon: Sequence[Point],
+) -> tuple[Point, ...]:
+    """Map a painted page polygon into that fragment crop's ``source_pixels``.
+
+    A pixel center is ``(column + 0.5, row + 0.5)`` millimetres. The crop
+    origin is the minimum column and row of page pixels whose centers lie
+    inside the polygon, the same origin the fragment TIFF uses.
+    """
+    _covered, origin_x, origin_y = _crop(page_polygon)
+    return tuple(
+        (
+            x_mm / MILLIMETRES_PER_PIXEL - 0.5 - origin_x,
+            y_mm / MILLIMETRES_PER_PIXEL - 0.5 - origin_y,
+        )
+        for x_mm, y_mm in page_polygon
+    )
+
+
 def _fragment_samples(
     fragment: FragmentGeometry,
     index: int,
     count: int,
     lighting_variation: float,
 ) -> tuple[bytes, int, int]:
-    covered = _covered_pixels(_eroded_page(fragment))
-    if not covered:
-        raise ValueError("The eroded polygon covers no pixel.")
-    columns = [pixel[0] for pixel in covered]
-    rows = [pixel[1] for pixel in covered]
-    origin_x = min(columns)
-    origin_y = min(rows)
-    width = max(columns) - origin_x + 1
-    height = max(rows) - origin_y + 1
+    covered, origin_x, origin_y = _crop(fragment.page_polygon)
+    width = max(pixel[0] for pixel in covered) - origin_x + 1
+    height = max(pixel[1] for pixel in covered) - origin_y + 1
     samples = bytearray(width * height)
     level = _fragment_level(index, count, lighting_variation)
     for column, row in covered:
@@ -615,8 +660,17 @@ def _paint(
     origin_x: int,
     origin_y: int,
 ) -> None:
-    for column, row in _covered_pixels(_eroded_page(fragment)):
+    for column, row in _covered_pixels(fragment.page_polygon):
         samples[(row - origin_y) * width + (column - origin_x)] = level
+
+
+def _crop(polygon: Sequence[Point]) -> tuple[tuple[tuple[int, int], ...], int, int]:
+    covered = _covered_pixels(polygon)
+    if not covered:
+        raise ValueError("The painted polygon covers no pixel.")
+    origin_x = min(pixel[0] for pixel in covered)
+    origin_y = min(pixel[1] for pixel in covered)
+    return covered, origin_x, origin_y
 
 
 def _covered_pixels(polygon: Sequence[Point]) -> tuple[tuple[int, int], ...]:
@@ -644,14 +698,6 @@ def _contains(x_mm: float, y_mm: float, polygon: Sequence[Point]) -> bool:
                 inside = not inside
         previous = index
     return inside
-
-
-def _eroded_page(fragment: FragmentGeometry) -> tuple[Point, ...]:
-    centroid_x, centroid_y = fragment.page_centroid
-    return tuple(
-        (x_coord + centroid_x, y_coord + centroid_y)
-        for x_coord, y_coord in fragment.local_polygon
-    )
 
 
 def _fragment_level(index: int, count: int, lighting_variation: float) -> int:
@@ -714,11 +760,7 @@ def _require_page_pixels() -> None:
 
 
 def _centroid(vertices: Sequence[Point]) -> Point:
-    count = len(vertices)
-    return (
-        sum(point[0] for point in vertices) / count,
-        sum(point[1] for point in vertices) / count,
-    )
+    return polygon_centroid(vertices)
 
 
 def _require_seed(seed: int) -> None:

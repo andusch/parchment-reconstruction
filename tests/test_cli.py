@@ -6,7 +6,12 @@ import sys
 from pathlib import Path
 
 from prw.identity import hash_value
-from prw.synthetic_tear import generate_synthetic_leaf
+from prw.outline_agreement import polygon_iou
+from prw.synthetic_tear import (
+    SyntheticLeaf,
+    fragment_polygon_in_source_pixels,
+    generate_synthetic_leaf,
+)
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -174,9 +179,14 @@ def test_generate_writes_only_under_the_benchmarks_path(tmp_path: Path) -> None:
 
 
 def _fragment(tmp_path: Path) -> tuple[Path, Path, bytes]:
+    benchmarks, fragment, payload, _generated = _synthetic_leaf(tmp_path)
+    return benchmarks, fragment, payload
+
+
+def _synthetic_leaf(tmp_path: Path) -> tuple[Path, Path, bytes, SyntheticLeaf]:
     benchmarks = tmp_path / "benchmarks"
     images = tmp_path / "images"
-    generate_synthetic_leaf(
+    leaf = generate_synthetic_leaf(
         benchmarks,
         images_dir=images,
         missing_fragment_percentage=0.0,
@@ -187,7 +197,7 @@ def _fragment(tmp_path: Path) -> tuple[Path, Path, bytes]:
         code_version="test-code",
     )
     fragment = next(images.glob("fragment-*.tif"))
-    return benchmarks, fragment, fragment.read_bytes()
+    return benchmarks, fragment, fragment.read_bytes(), leaf
 
 
 def test_segment_prints_an_outline_or_a_checksum_failure(tmp_path: Path) -> None:
@@ -265,7 +275,14 @@ def test_segment_with_scale_prints_a_millimetre_outline(tmp_path: Path) -> None:
 
 
 def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -> None:
-    benchmarks, fragment, _payload = _fragment(tmp_path)
+    benchmarks, fragment, _payload, leaf = _synthetic_leaf(tmp_path)
+    geometry = next(
+        item for item in leaf.fragments if fragment.name == f"fragment-{item.id}.tif"
+    )
+    reference = fragment_polygon_in_source_pixels(geometry.page_polygon)
+    reference_args = [
+        f"--reference={x_coord!r},{y_coord!r}" for x_coord, y_coord in reference
+    ]
     labels = (benchmarks / "labels.json").read_bytes()
     outside = {
         path.relative_to(tmp_path)
@@ -277,16 +294,7 @@ def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -
         str(fragment),
         "--benchmarks",
         str(benchmarks),
-        "--predicted",
-        "0,0",
-        "2,0",
-        "2,2",
-        "0,2",
-        "--reference",
-        "0,0",
-        "2,0",
-        "2,2",
-        "0,2",
+        *reference_args,
         "--frame",
         "source_pixels",
         "--label",
@@ -298,7 +306,16 @@ def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -
     )
     assert agreed.returncode == 0, agreed.stderr
     report = json.loads(agreed.stdout)
-    assert report["ious"] == [1.0]
+    predicted = report["predicted_polygons"][0]
+    assert predicted != report["reference_polygons"][0]
+    assert report["ious"] == [
+        polygon_iou(
+            predicted,
+            reference,
+            predicted_frame="source_pixels",
+            reference_frame="source_pixels",
+        )
+    ]
     assert report["algorithm_name"] == "fragment_outline"
     assert report["reference"] == "generator polygon supplied by the caller"
     assert "polygon" not in report
@@ -319,16 +336,7 @@ def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -
         str(fragment),
         "--benchmarks",
         str(benchmarks / "labels.json"),
-        "--predicted",
-        "0,0",
-        "2,0",
-        "2,2",
-        "0,2",
-        "--reference",
-        "0,0",
-        "2,0",
-        "2,2",
-        "0,2",
+        *reference_args,
         "--frame",
         "source_pixels",
         "--label",

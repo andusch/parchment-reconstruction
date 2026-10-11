@@ -10,7 +10,10 @@ pixels to millimetres. It does not open BenchmarkLabel join, placement, or
 page rows, and it does not invent a provenance envelope. The report copies
 algorithm name ``fragment_outline``, version ``1``, the parameter hash,
 ``code_version``, ``model_hash`` ``absent``, and the absence of
-``random_seed`` from the segmentation envelope the caller passes in.
+``random_seed`` from the segmentation envelope the caller passes in. It
+records every predicted polygon, every reference polygon, and a
+``ground_truth_freeze`` digest of the frame, the reference polygons, and
+the fixture image hashes.
 """
 
 from __future__ import annotations
@@ -22,7 +25,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from prw.frames import FrameKind
-from prw.identity import ABSENT, canonical_json_bytes, require_hash
+from prw.identity import ABSENT, canonical_json_bytes, hash_value, require_hash
 from prw.provenance import ProvenanceEnvelope
 from prw.synthetic_tear import require_fixture_destination
 
@@ -88,15 +91,27 @@ def write_outline_agreement(
     if len(pairs) == 0:
         raise ValueError("Outline agreement scores at least one polygon pair.")
     hashes = _fixture_hashes(fixture_image_hashes)
-    ious = [
-        polygon_iou(
-            predicted,
-            reference,
-            predicted_frame=named_frame,
-            reference_frame=named_frame,
+    predicted_polygons: list[list[list[float]]] = []
+    reference_polygons: list[list[list[float]]] = []
+    ious: list[float] = []
+    for predicted, reference in pairs:
+        predicted_ring = _ring(predicted)
+        reference_ring = _ring(reference)
+        predicted_polygons.append(_json_polygon(predicted_ring))
+        reference_polygons.append(_json_polygon(reference_ring))
+        ious.append(
+            polygon_iou(
+                predicted_ring,
+                reference_ring,
+                predicted_frame=named_frame,
+                reference_frame=named_frame,
+            )
         )
-        for predicted, reference in pairs
-    ]
+    freeze = {
+        "frame": named_frame,
+        "fixture_image_hashes": hashes,
+        "reference_polygons": reference_polygons,
+    }
     destination = require_fixture_destination(benchmarks_dir)
     report_dir = destination / _REPORT_DIRECTORY
     previous = _previous_report(report_dir)
@@ -112,6 +127,9 @@ def write_outline_agreement(
         "reference": "generator polygon supplied by the caller",
         "metric": "outline_agreement",
         "unit": "intersection_over_union",
+        "predicted_polygons": predicted_polygons,
+        "reference_polygons": reference_polygons,
+        "ground_truth_freeze": hash_value(canonical_json_bytes(freeze)),
         "ious": ious,
         "limiting_questions": ["Q-SCI-17"],
         "previous_report": ABSENT if previous is None else previous.name,
@@ -219,6 +237,10 @@ def _report_name(index: int) -> str:
     return f"{_REPORT_PREFIX}{index:04d}.json"
 
 
+def _json_polygon(ring: Polygon) -> list[list[float]]:
+    return [[x_coord, y_coord] for x_coord, y_coord in ring]
+
+
 def _ring(vertices: Sequence[object]) -> Polygon:
     if isinstance(vertices, str | bytes) or not isinstance(vertices, Sequence):
         raise TypeError("A polygon is a sequence of vertices.")
@@ -297,7 +319,7 @@ def _turn(vertices: Polygon, index: int) -> float:
 
 
 def _triangulate(vertices: Polygon) -> tuple[Polygon, ...]:
-    remaining = list(vertices)
+    remaining = _drop_collinear(list(vertices))
     triangles: list[Polygon] = []
     while len(remaining) > 3:
         count = len(remaining)
@@ -309,8 +331,28 @@ def _triangulate(vertices: Polygon) -> tuple[Polygon, ...]:
         nxt = remaining[(ear + 1) % count]
         triangles.append((previous, current, nxt))
         del remaining[ear]
-    triangles.append((remaining[0], remaining[1], remaining[2]))
+        remaining = _drop_collinear(remaining)
+    if len(remaining) == 3 and _signed_area(remaining) != 0:
+        triangles.append((remaining[0], remaining[1], remaining[2]))
     return tuple(triangles)
+
+
+def _drop_collinear(vertices: list[Point]) -> list[Point]:
+    points = vertices
+    changed = True
+    while changed and len(points) >= 3:
+        changed = False
+        kept: list[Point] = []
+        count = len(points)
+        for index, current in enumerate(points):
+            previous = points[(index - 1) % count]
+            nxt = points[(index + 1) % count]
+            if _cross(previous, current, nxt) == 0.0:
+                changed = True
+                continue
+            kept.append(current)
+        points = kept
+    return points
 
 
 def _ear_index(vertices: Sequence[Point]) -> int | None:
@@ -322,7 +364,7 @@ def _ear_index(vertices: Sequence[Point]) -> int | None:
         if _cross(previous, current, nxt) <= 0:
             continue
         if any(
-            _strictly_inside(vertices[other], previous, current, nxt)
+            _inside_or_boundary(vertices[other], previous, current, nxt)
             for other in range(count)
             if other not in {(index - 1) % count, index, (index + 1) % count}
         ):
@@ -331,11 +373,11 @@ def _ear_index(vertices: Sequence[Point]) -> int | None:
     return None
 
 
-def _strictly_inside(point: Point, a: Point, b: Point, c: Point) -> bool:
+def _inside_or_boundary(point: Point, a: Point, b: Point, c: Point) -> bool:
     first = _cross(a, b, point)
     second = _cross(b, c, point)
     third = _cross(c, a, point)
-    return first > 0 and second > 0 and third > 0
+    return first >= 0 and second >= 0 and third >= 0
 
 
 def _cross(origin: Point, first: Point, second: Point) -> float:

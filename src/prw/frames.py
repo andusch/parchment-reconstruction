@@ -3,8 +3,9 @@
 ``CoordinateFrame`` and ``PageFrame`` follow ``docs/DATA_MODEL.md`` and
 ``docs/adr/0011-frame-conventions.md``. Every kind stores ``+x`` right and
 ``+y`` down. ``source_pixels`` starts at the top-left pixel.
-``fragment_local_mm`` starts at the centroid of the polygon cited by
-``establishing_outline_revision_id``. That citation is the mask. It is not a
+    ``fragment_local_mm`` starts at the area centroid of the polygon cited by
+    ``establishing_outline_revision_id``. A repeated closing vertex is not a
+    second vertex. That citation is the mask. It is not a
 ``FragmentExtent``, and a later outline does not move it. ``page_global_mm``
 starts at the minimum corner, coordinate ``(0, 0)``. ``PageFrame`` width and
 height are ranges measured from that origin. Transforms are not frame fields.
@@ -46,19 +47,44 @@ _ORIGIN_FOR_KIND: dict[FrameKind, str] = {
 
 
 def polygon_centroid(vertices: Sequence[object]) -> Point:
-    """Return the mean of the polygon vertices.
+    """Return the area centroid of the polygon.
 
-    The centroid is that mean. No geometry library is used. A closing vertex
-    that repeats the first vertex counts again if the caller includes it.
+    The centroid is the shoelace centroid. A repeated closing vertex is not a
+    second vertex, and consecutive duplicate vertices are dropped. No geometry
+    library is used.
     """
-    points = tuple(_point(vertex) for vertex in vertices)
-    if len(points) < 3:
-        raise ValueError("A polygon has at least three vertices.")
+    points = _open_ring(vertices)
     count = len(points)
-    return (
-        sum(point[0] for point in points) / count,
-        sum(point[1] for point in points) / count,
-    )
+    twice_area = 0.0
+    centroid_x = 0.0
+    centroid_y = 0.0
+    for index, (x_coord, y_coord) in enumerate(points):
+        next_x, next_y = points[(index + 1) % count]
+        cross = x_coord * next_y - next_x * y_coord
+        twice_area += cross
+        centroid_x += (x_coord + next_x) * cross
+        centroid_y += (y_coord + next_y) * cross
+    if twice_area == 0.0:
+        raise ValueError("A polygon has a non-zero area.")
+    scale = 1.0 / (3.0 * twice_area)
+    return (centroid_x * scale, centroid_y * scale)
+
+
+def _open_ring(vertices: Sequence[object]) -> tuple[Point, ...]:
+    if isinstance(vertices, str | bytes) or not isinstance(vertices, Sequence):
+        raise TypeError("A polygon is a sequence of vertices.")
+    points = [_point(vertex) for vertex in vertices]
+    if len(points) >= 2 and points[0] == points[-1]:
+        points = points[:-1]
+    opened: list[Point] = []
+    for point in points:
+        if not opened or point != opened[-1]:
+            opened.append(point)
+    if len(opened) >= 2 and opened[0] == opened[-1]:
+        opened = opened[:-1]
+    if len(opened) < 3:
+        raise ValueError("A polygon has at least three vertices.")
+    return tuple(opened)
 
 
 def _point(value: object) -> Point:

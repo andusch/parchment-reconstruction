@@ -1,7 +1,7 @@
 # Roadmap
 
 - Status: Draft for review
-- Phase: P0
+- Phase: P2
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 Phases are ordered by dependency. This document sets no dates. From P1 onward, a phase that changes a stored schema includes a migration and migration tests. A phase that changes an algorithm includes a benchmark comparison, as defined in [EVALUATION.md](EVALUATION.md).
@@ -48,7 +48,7 @@ Packaging ([Q-ENG-02](ARCHITECTURE.md#q-eng-02)) is closed by [P1-01](../tasks/P
 
 **Blocked by.** [Q-SCI-17](EVALUATION.md#q-sci-17) for any accuracy claim. [Q-PRD-10](PRD.md#q-prd-10) for those extra physical features.
 
-Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) fixture TIFF samples, [P2-03](../tasks/P2-03.md) one-fragment segmentation, [P2-04](../tasks/P2-04.md) caller-supplied scale, [P2-05](../tasks/P2-05.md) synthetic outline agreement, [P2-06](../tasks/P2-06.md) human correction, and [P2-07](../tasks/P2-07.md) headless CLI. [P2-06](../tasks/P2-06.md) is Ready under [ADR-0013](adr/0013-human-outline-correction.md).
+Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) fixture TIFF samples, [P2-03](../tasks/P2-03.md) one-fragment segmentation, [P2-04](../tasks/P2-04.md) caller-supplied scale, [P2-05](../tasks/P2-05.md) synthetic outline agreement, [P2-06](../tasks/P2-06.md) human correction, and [P2-07](../tasks/P2-07.md) headless CLI. Those tickets are Done. [P2-06](../tasks/P2-06.md) is Done under [ADR-0013](adr/0013-human-outline-correction.md).
 
 ## P3
 

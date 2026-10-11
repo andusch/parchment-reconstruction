@@ -2,12 +2,13 @@
 
 import dataclasses
 import json
+import math
 import struct
 from pathlib import Path
 
 import pytest
 
-from prw.identity import canonical_json, hash_value
+from prw.identity import canonical_json, content_id, hash_value
 from prw.ingest import IntegrityFailure, VerifiedBytes, ingest_bytes
 from prw.synthetic_tear import (
     DECODER_NAME,
@@ -69,11 +70,19 @@ def test_fragment_local_axes_and_page_placement(tmp_path: Path) -> None:
     assert fragment.frame.axis_x_direction == "+x right"
     assert fragment.frame.axis_y_direction == "+y down"
     centroid_x, centroid_y = fragment.page_centroid
+    cosine = math.cos(0.2)
+    sine = math.sin(0.2)
     pairs = zip(fragment.page_polygon, fragment.local_polygon, strict=True)
     for (page_x, page_y), (local_x, local_y) in pairs:
-        assert local_x == pytest.approx(page_x - centroid_x)
-        assert local_y == pytest.approx(page_y - centroid_y)
+        assert page_x == pytest.approx(local_x * cosine - local_y * sine + centroid_x)
+        assert page_y == pytest.approx(local_x * sine + local_y * cosine + centroid_y)
     assert leaf.placements[0].rotation_radians == 0.2
+    assert fragment.frame.establishing_outline_revision_id == (
+        fragment.outline_revision_id
+    )
+    assert fragment.outline_revision_id == content_id(
+        {"kind": "outline", "local_polygon": fragment.local_polygon}
+    )
 
 
 def test_same_seed_repeats_polygons_and_label_ids(tmp_path: Path) -> None:
@@ -87,6 +96,26 @@ def test_same_seed_repeats_polygons_and_label_ids(tmp_path: Path) -> None:
     assert first.page.id == second.page.id
     other = _generate(tmp_path / "three", random_seed=8)
     assert first.cut_curves != other.cut_curves
+
+
+def test_rotation_changes_the_page_raster_and_not_the_local_polygon(
+    tmp_path: Path,
+) -> None:
+    upright = _generate(tmp_path / "upright", rotation=0.0, edge_erosion=0.25)
+    turned = _generate(tmp_path / "turned", rotation=0.2, edge_erosion=0.25)
+    plain = _generate(tmp_path / "plain", rotation=0.0, edge_erosion=0.0)
+    assert upright.fragments[0].local_polygon == turned.fragments[0].local_polygon
+    assert upright.fragments[0].page_polygon != turned.fragments[0].page_polygon
+    assert plain.fragments[0].local_polygon != upright.fragments[0].local_polygon
+    assert upright.fragments[0].outline_revision_id == content_id(
+        {"kind": "outline", "local_polygon": upright.fragments[0].local_polygon}
+    )
+    assert upright.fragments[0].outline_revision_id != content_id(
+        {"kind": "outline", "local_polygon": plain.fragments[0].local_polygon}
+    )
+    upright_page = (_images(tmp_path / "upright") / "page.tif").read_bytes()
+    turned_page = (_images(tmp_path / "turned") / "page.tif").read_bytes()
+    assert upright_page != turned_page
 
 
 def test_missing_percentage_omits_pieces_without_a_grapheme_status(

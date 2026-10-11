@@ -107,11 +107,16 @@ def _parser() -> argparse.ArgumentParser:
 
     agree = commands.add_parser(
         "agree",
-        help="Score caller polygons and write an IoU report. Unfrozen.",
+        help=("Score the segmented outline against a caller polygon. Unfrozen."),
     )
     agree.add_argument("--benchmarks", type=Path, required=True)
-    agree.add_argument("--predicted", nargs="+", required=True, metavar="X,Y")
-    agree.add_argument("--reference", nargs="+", required=True, metavar="X,Y")
+    agree.add_argument(
+        "--reference",
+        action="append",
+        required=True,
+        metavar="X,Y",
+        help="One vertex of the reference polygon. Repeat for each vertex.",
+    )
     agree.add_argument("--frame", required=True)
     _add_segment_arguments(agree)
     return parser
@@ -242,11 +247,13 @@ def _cmd_agree(args: argparse.Namespace) -> int:
     if not isinstance(segmented, SegmentedOutline):
         _print_failure(segmented)
         return 1
+    if args.frame != segmented.frame.kind:
+        raise ValueError("Outline agreement uses the segmented outline's frame.")
     report = write_outline_agreement(
         args.benchmarks,
         envelope=segmented.run.provenance,
-        frame=args.frame,
-        pairs=[(_polygon_arg(args.predicted), _polygon_arg(args.reference))],
+        frame=segmented.frame.kind,
+        pairs=[(segmented.outline.polygon, _polygon_arg(args.reference))],
         fixture_image_hashes=segmented.run.provenance.source_hashes,
     )
     _print_record(json.loads(report.read_text(encoding="utf-8")))

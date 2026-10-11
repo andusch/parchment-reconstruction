@@ -2,15 +2,26 @@
 
 import inspect
 import json
+import uuid
 from pathlib import Path
 
 import pytest
 
-from prw.identity import ABSENT, hash_value
+from prw.identity import ABSENT, canonical_json_bytes, hash_value
 from prw.outline_agreement import polygon_iou, write_outline_agreement
 from prw.provenance import ProvenanceEnvelope
-from prw.segment import ALGORITHM_NAME, ALGORITHM_VERSION
-from prw.synthetic_tear import DECODER_NAME, DECODER_VERSION, generate_synthetic_leaf
+from prw.segment import (
+    ALGORITHM_NAME,
+    ALGORITHM_VERSION,
+    SegmentationLog,
+    SegmentedOutline,
+)
+from prw.synthetic_tear import (
+    DECODER_NAME,
+    DECODER_VERSION,
+    fragment_polygon_in_source_pixels,
+    generate_synthetic_leaf,
+)
 
 _SQUARE = ((0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0))
 _SHIFT = ((1.0, 0.0), (3.0, 0.0), (3.0, 2.0), (1.0, 2.0))
@@ -88,11 +99,18 @@ def test_reversed_and_concave_polygons_keep_their_area() -> None:
     )
 
 
+def _json_polygon(
+    polygon: tuple[tuple[float, float], ...],
+) -> list[list[float]]:
+    return [[x_coord, y_coord] for x_coord, y_coord in polygon]
+
+
 def test_report_lists_every_leaf_iou_and_keeps_labels(tmp_path: Path) -> None:
     benchmarks = tmp_path / "benchmarks"
+    images = tmp_path / "images"
     leaf = generate_synthetic_leaf(
         benchmarks,
-        images_dir=tmp_path / "images",
+        images_dir=images,
         missing_fragment_percentage=0.0,
         edge_erosion=0.1,
         rotation=0.2,
@@ -102,12 +120,30 @@ def test_report_lists_every_leaf_iou_and_keeps_labels(tmp_path: Path) -> None:
     )
     labels = (benchmarks / "labels.json").read_bytes()
     provenance = (benchmarks / "provenance.json").read_bytes()
-    frame = leaf.fragments[0].frame.kind
-    pairs = [
-        (fragment.local_polygon, fragment.local_polygon) for fragment in leaf.fragments
-    ]
+    pairs: list[
+        tuple[tuple[tuple[float, float], ...], tuple[tuple[float, float], ...]]
+    ] = []
+    envelope = None
+    for fragment in leaf.fragments:
+        image = next(item for item in leaf.images if item.fragment_id == fragment.id)
+        segmented = SegmentationLog().segment(
+            (images / image.name).read_bytes(),
+            project_id=uuid.uuid4(),
+            label=image.name,
+            foreground_threshold=1,
+            code_version="test-code",
+            recorded_at="2020-01-01T00:00:00Z",
+            expected_hash=image.content_hash,
+        )
+        assert isinstance(segmented, SegmentedOutline)
+        reference = fragment_polygon_in_source_pixels(fragment.page_polygon)
+        assert segmented.outline.polygon != reference
+        pairs.append((segmented.outline.polygon, reference))
+        if envelope is None:
+            envelope = segmented.run.provenance
+    assert envelope is not None
     hashes = tuple(image.content_hash for image in leaf.images)
-    envelope = _envelope()
+    frame = "source_pixels"
     first = write_outline_agreement(
         benchmarks,
         envelope=envelope,
@@ -125,7 +161,30 @@ def test_report_lists_every_leaf_iou_and_keeps_labels(tmp_path: Path) -> None:
     assert body["random_seed"] == ABSENT
     assert body["fixture_image_hashes"] == list(hashes)
     assert body["reference"] == "generator polygon supplied by the caller"
-    assert body["ious"] == [1.0] * len(leaf.fragments)
+    assert body["predicted_polygons"] == [
+        _json_polygon(predicted) for predicted, _reference in pairs
+    ]
+    assert body["reference_polygons"] == [
+        _json_polygon(reference) for _predicted, reference in pairs
+    ]
+    assert body["ious"] == [
+        polygon_iou(
+            predicted,
+            reference,
+            predicted_frame=frame,
+            reference_frame=frame,
+        )
+        for predicted, reference in pairs
+    ]
+    assert body["ground_truth_freeze"] == hash_value(
+        canonical_json_bytes(
+            {
+                "frame": frame,
+                "fixture_image_hashes": hashes,
+                "reference_polygons": body["reference_polygons"],
+            }
+        )
+    )
     assert len(body["ious"]) == len(pairs)
     assert "best" not in body
     assert "threshold" not in body
@@ -137,7 +196,7 @@ def test_report_lists_every_leaf_iou_and_keeps_labels(tmp_path: Path) -> None:
     assert (benchmarks / "labels.json").read_bytes() == labels
     assert (benchmarks / "provenance.json").read_bytes() == provenance
 
-    shifted = [(fragment.local_polygon, _SQUARE) for fragment in leaf.fragments]
+    shifted = [(predicted, _SQUARE) for predicted, _reference in pairs]
     second = write_outline_agreement(
         benchmarks,
         envelope=envelope,

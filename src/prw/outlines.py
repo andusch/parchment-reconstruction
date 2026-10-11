@@ -7,7 +7,8 @@ A detector outline is epistemic class ``interpretation`` with producer
 outline is a new ``FragmentOutlineRevision`` in the same class with
 producer ``human``, as ``docs/adr/0013-human-outline-correction.md``
 decides. ``run_id`` is null, there is no machine envelope, and the id is a
-UUIDv5 over the polygon. Inserting a ``FragmentOutlineRevision`` appends
+UUIDv5 over the fragment id, the superseded revision, the operator, the
+session, and the polygon. Inserting a ``FragmentOutlineRevision`` appends
 one ``StatusEvent`` in the same write. That event is ``proposed``, unless
 the same write is a machine rejection, in which case the event is
 ``rejected``. The outline row has no status column. A later polygon is a
@@ -225,7 +226,15 @@ class FragmentOutlineRevision:
         stored_polygon = _polygon(polygon)
         stored_operator = _require_text(operator_id, "operator_id")
         stored_session = _require_text(session_id, "session_id")
-        revision_id = content_id([stored_polygon])
+        revision_id = content_id(
+            [
+                self.fragment_id,
+                self.id,
+                stored_operator,
+                stored_session,
+                stored_polygon,
+            ]
+        )
         if revision_id == self.id:
             raise ValueError("supersedes_id cites a previous outline revision.")
         return FragmentOutlineRevision(
@@ -243,9 +252,20 @@ class FragmentOutlineRevision:
         )
 
     def id_inputs(self) -> list[Any]:
-        """Polygon, and the run id when that run produced the row."""
+        """Run id and polygon, or the human correction's distinguishing fields.
+
+        A null ``run_id`` uses the fragment, the superseded revision, the
+        operator, the session, and the polygon. Two corrections that share a
+        polygon and differ in any of those fields are different rows.
+        """
         if self.run_id is None:
-            return [self.polygon]
+            return [
+                self.fragment_id,
+                self.supersedes_id,
+                self.operator_id,
+                self.session_id,
+                self.polygon,
+            ]
         return [self.run_id, self.polygon]
 
     def __post_init__(self) -> None:

@@ -170,7 +170,15 @@ def test_human_correction_is_a_new_interpretation_row() -> None:
     assert correction.operator_id == "scholar-1"
     assert correction.session_id == "session-1"
     assert correction.supersedes_id == machine.id
-    assert correction.id == content_id([correction.polygon])
+    assert correction.id == content_id(
+        [
+            correction.fragment_id,
+            correction.supersedes_id,
+            correction.operator_id,
+            correction.session_id,
+            correction.polygon,
+        ]
+    )
     assert correction.id != machine.id
     assert correction.polygon == _LATER_TRIANGLE
     assert machine.polygon == _TRIANGLE
@@ -192,3 +200,34 @@ def test_human_correction_is_a_new_interpretation_row() -> None:
     assert log.by_id(correction.id) is correction
     assert fragment.identification_status == "detected"
     assert not hasattr(outlines, "FragmentExtent")
+
+
+def test_two_sessions_store_the_same_polygon_as_different_corrections() -> None:
+    envelope = _envelope()
+    run = _run(envelope)
+    fragment = Fragment.create(project_id=uuid.uuid4(), label="piece")
+    machine = _outline(envelope, run, fragment)
+    source = bytearray(b"synthetic-source")
+    source_before = bytes(source)
+    log = OutlineRevisionLog()
+    stream = StatusStream()
+    log.insert(stream, machine, recorded_at=_RECORDED, actor=str(run.id))
+    first = machine.correct(
+        _LATER_TRIANGLE,
+        operator_id="scholar-1",
+        session_id="session-1",
+    )
+    second = machine.correct(
+        _LATER_TRIANGLE,
+        operator_id="scholar-1",
+        session_id="session-2",
+    )
+    assert first.id != second.id
+    assert first.polygon == second.polygon == _LATER_TRIANGLE
+    log.insert(stream, first, recorded_at=_RECORDED, actor="scholar-1")
+    log.insert(stream, second, recorded_at=_RECORDED, actor="scholar-1")
+    assert machine.polygon == _TRIANGLE
+    assert bytes(source) == source_before
+    assert log.by_id(machine.id).polygon == _TRIANGLE
+    assert log.by_id(first.id).polygon == _LATER_TRIANGLE
+    assert log.by_id(second.id).polygon == _LATER_TRIANGLE
