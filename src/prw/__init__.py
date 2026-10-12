@@ -1,8 +1,9 @@
 """Parchment reconstruction workbench.
 
 Headless use cases live in ``prw.ingest``, ``prw.frames``, ``prw.outlines``,
-``prw.provenance``, ``prw.joins``, ``prw.synthetic_tear``, ``prw.fixture_tiff``,
-``prw.segment``, ``prw.scale``, and ``prw.outline_agreement``.
+``prw.provenance``, ``prw.joins``, ``prw.edge_chord``, ``prw.synthetic_tear``,
+``prw.fixture_tiff``, ``prw.segment``, ``prw.scale``, and
+``prw.outline_agreement``.
 ``python -m prw.cli`` calls ingest, frames, provenance, the synthetic fixture
 generator, segmentation, caller-supplied scale, and outline agreement.
 ``prw.fixture_tiff`` reads that writer's uncompressed grayscale layout

@@ -41,7 +41,7 @@ The target type and the acceptable scale error are [Q-SCI-10](SCAN_PROTOCOL.md#q
 ### 4. Build edge descriptors
 
 - **Inputs.** An outline and, when scale exists, the transform into `fragment_local_mm`.
-- **Outputs.** `EdgeArc` rows in `fragment_local_mm`, scoped to that outline revision, and the descriptors the join stage will consume. Descriptors are epistemic class `interpretation`, producer `machine`, and travel inside the run's provenance.
+- **Outputs.** `EdgeArc` rows in `fragment_local_mm`, scoped to that outline revision, and the descriptors the join stage will consume. Descriptors are epistemic class `interpretation`, producer `machine`, and travel inside the run's provenance. The implemented algorithm `edge_chord` records descriptor `chord`: a non-millimetre outline is a failed run, and an outline with no usable side is a completed run with no edges.
 - **Failure.** An outline with no usable edge yields no join that names that outline. The outline itself remains. Superseding the outline revision invalidates its edge arcs and the join candidates that cite them. Those rows stay stored and leave the rank list.
 
 Descriptor choice and numeric parameters are part of the parameter blob. P0 does not set them.
