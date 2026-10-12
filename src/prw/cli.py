@@ -6,7 +6,9 @@ The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 not a stable interface. The project format is still Q-ENG-01 in
 ``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open a
 network connection, does not start a worker, and does not write
-``manifest.json`` or ``originals/``.
+``manifest.json`` or ``originals/``. An absent ``fragment-<integer>.tif`` is
+the fragment at that index in the sibling ``image_manifest.json``. An
+existing file is read as given.
 """
 
 from __future__ import annotations
@@ -130,8 +132,97 @@ def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--code-version", required=True)
 
 
+def _presented_bytes(path: Path) -> bytes:
+    """Read one fixture image.
+
+    An existing file is read as given. ``fragment-<integer>.tif`` is the
+    fragment at that index in the sibling ``image_manifest.json`` when that
+    file is absent. The caller receives bytes. Segmentation does not open
+    the manifest or a BenchmarkLabel file.
+    """
+    resolved = _resolve_image(path)
+    try:
+        return resolved.read_bytes()
+    except OSError as exc:
+        raise ValueError(_missing_image_message(path)) from exc
+
+
+def _resolve_image(path: Path) -> Path:
+    if path.is_file():
+        return path
+    index = _ordinal_fragment_index(path.name)
+    manifest_path = path.parent / "image_manifest.json"
+    if index is None or not manifest_path.is_file():
+        return path
+    names = _manifest_fragment_names(manifest_path)
+    if index >= len(names):
+        raise ValueError(_missing_image_message(path, names))
+    return path.parent / names[index]
+
+
+def _ordinal_fragment_index(name: str) -> int | None:
+    stem, separator, suffix = name.rpartition(".")
+    if separator != "." or suffix != "tif" or not stem.startswith("fragment-"):
+        return None
+    digits = stem.removeprefix("fragment-")
+    if digits == "" or not digits.isdecimal():
+        return None
+    return int(digits)
+
+
+def _manifest_fragment_names(path: Path) -> list[str]:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("An image manifest is JSON.") from exc
+    images = loaded.get("images") if isinstance(loaded, dict) else None
+    if not isinstance(images, list):
+        raise ValueError("An image manifest lists images.")
+    names: list[str] = []
+    for entry in images:
+        if not isinstance(entry, dict):
+            raise ValueError("An image manifest lists images.")
+        if entry.get("role") != "fragment":
+            continue
+        name = entry.get("name")
+        if not isinstance(name, str) or not _is_fragment_file_name(name):
+            raise ValueError("An image manifest names each fragment file.")
+        names.append(name)
+    return names
+
+
+def _is_fragment_file_name(name: str) -> bool:
+    return (
+        name == Path(name).name
+        and name.startswith("fragment-")
+        and name.endswith(".tif")
+        and name != "fragment-.tif"
+    )
+
+
+def _fragment_names(directory: Path) -> list[str]:
+    manifest_path = directory / "image_manifest.json"
+    if manifest_path.is_file():
+        return _manifest_fragment_names(manifest_path)
+    if not directory.is_dir():
+        return []
+    return sorted(
+        path.name
+        for path in directory.iterdir()
+        if path.is_file() and _is_fragment_file_name(path.name)
+    )
+
+
+def _missing_image_message(path: Path, names: Sequence[str] | None = None) -> str:
+    present = list(names) if names is not None else _fragment_names(path.parent)
+    if not present:
+        return f"{path} is not a fixture image."
+    listed = ", ".join(present)
+    return f"{path} is not a fixture image. Fragment files: {listed}."
+
+
 def _cmd_verify(args: argparse.Namespace) -> int:
-    presented = args.path.read_bytes()
+    presented = _presented_bytes(args.path)
     result = ingest_bytes(presented, expected_hash=args.expected)
     if isinstance(result, VerifiedBytes):
         _print_record(
@@ -202,7 +293,7 @@ def _cmd_provenance(args: argparse.Namespace) -> int:
 
 
 def _cmd_segment(args: argparse.Namespace) -> int:
-    presented = args.path.read_bytes()
+    presented = _presented_bytes(args.path)
     segmented = _segment_presented(args, presented)
     if not isinstance(segmented, SegmentedOutline):
         _print_failure(segmented)
@@ -242,7 +333,7 @@ def _cmd_segment(args: argparse.Namespace) -> int:
 
 def _cmd_agree(args: argparse.Namespace) -> int:
     _refuse_benchmark_label_join(args.benchmarks)
-    presented = args.path.read_bytes()
+    presented = _presented_bytes(args.path)
     segmented = _segment_presented(args, presented)
     if not isinstance(segmented, SegmentedOutline):
         _print_failure(segmented)

@@ -274,6 +274,122 @@ def test_segment_with_scale_prints_a_millimetre_outline(tmp_path: Path) -> None:
     assert "correct_join" not in scaled.stdout
 
 
+def _first_fragment(images: Path) -> tuple[Path, list[str]]:
+    manifest = json.loads((images / "image_manifest.json").read_text(encoding="utf-8"))
+    names = [
+        entry["name"] for entry in manifest["images"] if entry["role"] == "fragment"
+    ]
+    return images / names[0], names
+
+
+def _distinguish_first_fragment(path: Path) -> bytes:
+    payload = bytearray(path.read_bytes())
+    payload[-1] ^= 0x01
+    if payload[-1] == 0:
+        payload[-1] = 2
+    written = bytes(payload)
+    path.write_bytes(written)
+    return written
+
+
+def test_ordinal_fragment_reads_the_first_manifest_image(tmp_path: Path) -> None:
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    first, _names = _first_fragment(images)
+    page = images / "page.tif"
+    alias = images / "fragment-0.tif"
+    alias.write_bytes(page.read_bytes())
+    existing = _run("verify", str(alias))
+    assert existing.returncode == 0, existing.stderr
+    assert json.loads(existing.stdout)["content_hash"] == hash_value(page.read_bytes())
+    alias.unlink()
+
+    labels = benchmarks / "labels.json"
+    original_labels = labels.read_bytes()
+    parked = tmp_path / "labels-parked.json"
+    parked.write_bytes(original_labels)
+    labels.unlink()
+    written = _distinguish_first_fragment(first)
+    digest = hash_value(written)
+
+    verified = _run("verify", str(alias))
+    direct = _run("verify", str(first))
+    assert verified.returncode == 0, verified.stderr
+    assert direct.returncode == 0, direct.stderr
+    assert verified.stdout == direct.stdout
+    assert json.loads(verified.stdout)["content_hash"] == digest
+
+    segment_args = (
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+    )
+    segmented = _run("segment", str(alias), *segment_args)
+    direct_segment = _run("segment", str(first), *segment_args)
+    assert segmented.returncode == 0, segmented.stderr
+    assert segmented.stdout == direct_segment.stdout
+    assert json.loads(segmented.stdout)["envelope"]["source_hashes"] == [digest]
+
+    scale_args = (*segment_args, "--pixels-per-mm", "10", "--uncertainty", "0.1")
+    scaled = _run("segment", str(alias), *scale_args)
+    direct_scaled = _run("segment", str(first), *scale_args)
+    assert scaled.returncode == 0, scaled.stderr
+    assert scaled.stdout == direct_scaled.stdout
+    assert json.loads(scaled.stdout)["frame"] == "fragment_local_mm"
+    assert json.loads(scaled.stdout)["envelope"]["source_hashes"] == [digest]
+    assert not labels.exists()
+    assert parked.read_bytes() == original_labels
+
+
+def test_missing_image_names_the_fragment_files(tmp_path: Path) -> None:
+    _benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    _first, names = _first_fragment(images)
+
+    missing = _run("verify", str(images / "not-a-page.tif"))
+    assert missing.returncode == 2
+    assert missing.stdout == ""
+    assert str(images / "not-a-page.tif") in missing.stderr
+    assert "Traceback" not in missing.stderr
+    for name in names:
+        assert name in missing.stderr
+
+    out_of_range = _run("verify", str(images / "fragment-9.tif"))
+    assert out_of_range.returncode == 2
+    assert out_of_range.stdout == ""
+    assert str(images / "fragment-9.tif") in out_of_range.stderr
+    assert "Traceback" not in out_of_range.stderr
+    for name in names:
+        assert name in out_of_range.stderr
+
+    absent_page = _run("verify", str(tmp_path / "empty" / "page.tif"))
+    assert absent_page.returncode == 2
+    assert absent_page.stdout == ""
+    assert str(tmp_path / "empty" / "page.tif") in absent_page.stderr
+    assert "Fragment files:" not in absent_page.stderr
+
+    manifest_path = images / "image_manifest.json"
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    manifest_path.unlink()
+    without_manifest = _run("verify", str(images / "fragment-0.tif"))
+    assert without_manifest.returncode == 2
+    assert without_manifest.stdout == ""
+    assert str(images / "fragment-0.tif") in without_manifest.stderr
+    for name in names:
+        assert name in without_manifest.stderr
+
+    manifest_path.write_text("{", encoding="utf-8")
+    corrupt = _run("verify", str(images / "fragment-0.tif"))
+    assert corrupt.returncode == 2
+    assert corrupt.stdout == ""
+    assert corrupt.stderr.strip() == "An image manifest is JSON."
+    assert "Traceback" not in corrupt.stderr
+    manifest_path.write_text(manifest_text, encoding="utf-8")
+
+
 def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -> None:
     benchmarks, fragment, _payload, leaf = _synthetic_leaf(tmp_path)
     geometry = next(
