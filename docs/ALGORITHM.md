@@ -52,6 +52,8 @@ Descriptor choice and numeric parameters are part of the parameter blob. P0 does
 - **Outputs.** `JoinHypothesis` rows with a rigid relative pose and a `physical` score. Rank follows the `physical` channel.
 - **Failure.** When millimetre calibration is missing, do not emit a millimetre pose. The stage may refuse to rank rather than rank in mixed units.
 
+The implemented algorithm `pairwise_rigid_join` version `1` scores each candidate by `negative_absolute_length_difference`, which is not a probability and does not mean the edges meet.
+
 Joins in this contract are pairwise. Three fragments meeting at a point are [Q-SCI-07](#q-sci-07). Hair side and flesh side are [Q-SCI-19](#q-sci-19).
 
 ### 6. Search top-N assemblies
