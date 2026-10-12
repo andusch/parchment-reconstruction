@@ -23,7 +23,7 @@ from __future__ import annotations
 import math
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from prw.identity import content_id
@@ -71,6 +71,18 @@ def _require_label(value: object) -> str:
     return value
 
 
+def _require_identification_status(
+    value: object,
+) -> Literal["catalogued", "detected", "confirmed"]:
+    if value == "catalogued":
+        return "catalogued"
+    if value == "detected":
+        return "detected"
+    if value == "confirmed":
+        return "confirmed"
+    raise ValueError("identification_status is catalogued, detected, or confirmed.")
+
+
 def _require_text(value: object, label: str) -> str:
     if not isinstance(value, str) or value == "":
         raise ValueError(f"{label} is set on a human outline correction.")
@@ -82,26 +94,65 @@ class Fragment:
     """Identity of one physical piece. The label is not a reconstruction.
 
     The id is a UUIDv5 over the caller-supplied project id and the opaque
-    label. See ``Fragment`` in ``docs/DATA_MODEL.md``. A machine-proposed
-    fragment has ``identification_status`` ``detected``.
+    label. Status is not an id input. See ``Fragment`` in
+    ``docs/DATA_MODEL.md``. Only catalogued and confirmed fragments enter
+    matching by default. ``Fragment.create`` records a machine-proposed
+    fragment as ``detected``.
     """
 
     project_id: uuid.UUID
     label: str
-    identification_status: Literal["detected"]
+    identification_status: Literal["catalogued", "detected", "confirmed"]
     id: uuid.UUID
 
     @classmethod
     def create(cls, *, project_id: uuid.UUID, label: str) -> Fragment:
         """Build a machine-proposed fragment with status ``detected``."""
+        return cls._new(
+            project_id=project_id,
+            label=label,
+            identification_status="detected",
+        )
+
+    @classmethod
+    def catalogued(cls, *, project_id: uuid.UUID, label: str) -> Fragment:
+        """Build an inventory fragment with status ``catalogued``.
+
+        The id uses the same project id and opaque label as ``create``.
+        See ``Fragment`` in ``docs/DATA_MODEL.md``.
+        """
+        return cls._new(
+            project_id=project_id,
+            label=label,
+            identification_status="catalogued",
+        )
+
+    @classmethod
+    def _new(
+        cls,
+        *,
+        project_id: uuid.UUID,
+        label: str,
+        identification_status: Literal["catalogued", "detected", "confirmed"],
+    ) -> Fragment:
         stored_project = _require_uuid(project_id, "project_id")
         stored_label = _require_label(label)
+        stored_status = _require_identification_status(identification_status)
         return cls(
             project_id=stored_project,
             label=stored_label,
-            identification_status="detected",
+            identification_status=stored_status,
             id=content_id([stored_project, stored_label]),
         )
+
+    def confirm(self) -> Fragment:
+        """Return a reviewed detection with the same id.
+
+        The caller's fragment stays as it was. The returned value has
+        ``identification_status`` ``confirmed``. See ``Fragment`` in
+        ``docs/DATA_MODEL.md``.
+        """
+        return replace(self, identification_status="confirmed")
 
     def id_inputs(self) -> list[Any]:
         """Project id, then the opaque label. Status is not an id input."""
@@ -110,10 +161,7 @@ class Fragment:
     def __post_init__(self) -> None:
         _require_uuid(self.project_id, "project_id")
         _require_label(self.label)
-        if self.identification_status != "detected":
-            raise ValueError(
-                "A machine-proposed fragment has identification_status detected."
-            )
+        _require_identification_status(self.identification_status)
         if self.id != content_id(self.id_inputs()):
             raise ValueError("Fragment.id does not match the project id and label.")
 

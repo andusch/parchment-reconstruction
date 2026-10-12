@@ -66,6 +66,45 @@ def test_machine_fragment_id_uses_the_project_and_the_label() -> None:
     assert other_project.id != fragment.id
 
 
+def test_catalogued_fragment_shares_the_detected_id() -> None:
+    project_id = uuid.uuid4()
+    detected = Fragment.create(project_id=project_id, label="shelf-4")
+    catalogued = Fragment.catalogued(project_id=project_id, label="shelf-4")
+    assert detected.identification_status == "detected"
+    assert catalogued.identification_status == "catalogued"
+    assert catalogued.id == detected.id
+    assert catalogued.id == content_id([project_id, "shelf-4"])
+    assert catalogued.id == content_id(catalogued.id_inputs())
+    assert catalogued.id != content_id([project_id, "shelf-4", "catalogued"])
+    assert catalogued.project_id == project_id
+    assert catalogued.label == "shelf-4"
+
+
+def test_confirm_returns_a_new_value_and_keeps_the_id() -> None:
+    project_id = uuid.uuid4()
+    detected = Fragment.create(project_id=project_id, label="shelf-4")
+    confirmed = detected.confirm()
+    assert confirmed is not detected
+    assert confirmed.identification_status == "confirmed"
+    assert confirmed.id == detected.id
+    assert confirmed.id == content_id([project_id, "shelf-4"])
+    assert confirmed.id == content_id(confirmed.id_inputs())
+    assert detected.identification_status == "detected"
+    assert detected.id == confirmed.id
+
+
+def test_identification_status_outside_the_vocabulary_is_rejected() -> None:
+    project_id = uuid.uuid4()
+    fragment_id = content_id([project_id, "shelf-4"])
+    with pytest.raises(ValueError, match="identification_status"):
+        Fragment(
+            project_id=project_id,
+            label="shelf-4",
+            identification_status="observed",  # type: ignore[arg-type]
+            id=fragment_id,
+        )
+
+
 def test_rejected_class_and_producer() -> None:
     envelope = _envelope()
     run = _run(envelope)
