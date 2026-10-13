@@ -14,6 +14,12 @@ the same write is a machine rejection, in which case the event is
 ``rejected``. The outline row has no status column. A later polygon is a
 new row with ``supersedes_id``. The previous row stays.
 
+Inserting a revision that supersedes another appends ``invalidated``, in
+that same write, on each ``EdgeArc`` of the superseded revision and on each
+join that cites one of those edges. See ``FragmentOutlineRevision`` in
+``docs/DATA_MODEL.md``. The edge geometry and the join content stay. A
+later rank omits those joins.
+
 These records are internal. They are not a stable public API, and they do
 not write a project directory.
 """
@@ -27,6 +33,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from prw.identity import content_id
+from prw.joins import EdgeArcLog, JoinHypothesisLog
 from prw.provenance import StatusEvent, StatusStream
 
 type Point = tuple[float, float]
@@ -242,7 +249,9 @@ class FragmentOutlineRevision:
         """Return a new machine revision. This polygon stays as it was.
 
         The new row stores ``supersedes_id`` pointing at this id. See
-        ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md``.
+        ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md``. Storing that
+        row appends ``invalidated`` on this revision's edges and on joins
+        that cite them. Those content rows stay.
         """
         if self.run_id is None or self.provenance_id is None:
             raise ValueError("A machine revision supersedes with its run and envelope.")
@@ -270,6 +279,8 @@ class FragmentOutlineRevision:
         ``docs/adr/0013-human-outline-correction.md``. The new row is class
         ``interpretation`` with producer ``human``. ``run_id`` is null.
         There is no machine envelope. ``supersedes_id`` cites this revision.
+        Storing that row appends ``invalidated`` on this revision's edges
+        and on joins that cite them. Those content rows stay.
         """
         stored_polygon = _polygon(polygon)
         stored_operator = _require_text(operator_id, "operator_id")
@@ -346,12 +357,22 @@ class OutlineRevisionLog:
 
     ``insert`` appends the first ``StatusEvent`` in the same write. See the
     insert rule for ``FragmentOutlineRevision`` under ``StatusEvent`` in
-    ``docs/DATA_MODEL.md``. The current status is that event stream. It is
-    not a column on the outline.
+    ``docs/DATA_MODEL.md``. When the new row supersedes a stored revision,
+    that write also appends ``invalidated`` on each ``EdgeArc`` of the
+    superseded revision and on each join that cites one of those edges. See
+    ``FragmentOutlineRevision`` in ``docs/DATA_MODEL.md``. The content rows
+    stay. A later rank omits the invalidated joins. The current status is
+    that event stream. It is not a column on the outline.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        edges: EdgeArcLog | None = None,
+        joins: JoinHypothesisLog | None = None,
+    ) -> None:
         self._rows: list[FragmentOutlineRevision] = []
+        self._edges = EdgeArcLog() if edges is None else edges
+        self._joins = JoinHypothesisLog() if joins is None else joins
 
     @property
     def rows(self) -> tuple[FragmentOutlineRevision, ...]:
@@ -376,7 +397,11 @@ class OutlineRevisionLog:
 
         This write is not a machine rejection, so the event is ``proposed``.
         See the ``FragmentOutlineRevision`` insert rule under ``StatusEvent``
-        in ``docs/DATA_MODEL.md``. The outline object is not modified.
+        in ``docs/DATA_MODEL.md``. When ``outline`` supersedes a stored
+        revision, the same write appends ``invalidated`` on that revision's
+        edges and on joins that cite those edges. The outline object is not
+        modified, and neither are the edge or join rows. A later rank omits
+        the invalidated joins.
         """
         if not isinstance(outline, FragmentOutlineRevision):
             raise TypeError("insert stores a FragmentOutlineRevision.")
@@ -392,11 +417,66 @@ class OutlineRevisionLog:
             raise ValueError(
                 "An outline revision is inserted once, with its first status event."
             )
+        edges, joins = _superseded_dependents(
+            stream,
+            self._edges,
+            self._joins,
+            outline.supersedes_id,
+        )
         event = stream.append(
             target_id=outline.id,
             status="proposed",
             recorded_at=recorded_at,
             actor=actor,
         )
+        for dependent in (*edges, *joins):
+            stream.append(
+                target_id=dependent,
+                status="invalidated",
+                recorded_at=recorded_at,
+                actor=actor,
+            )
         self._rows.append(outline)
         return event
+
+
+def _superseded_dependents(
+    stream: StatusStream,
+    edges: EdgeArcLog,
+    joins: JoinHypothesisLog,
+    supersedes_id: uuid.UUID | None,
+) -> tuple[tuple[uuid.UUID, ...], tuple[uuid.UUID, ...]]:
+    """Return edge ids and citing join ids for the superseded revision.
+
+    A revision with no edges returns no ids. See ``FragmentOutlineRevision``
+    in ``docs/DATA_MODEL.md``. The content rows are not changed. A later
+    rank omits joins whose latest status is ``invalidated``.
+    """
+    if supersedes_id is None:
+        return (), ()
+    owned = tuple(
+        sorted(
+            (edge for edge in edges.rows if edge.outline_revision_id == supersedes_id),
+            key=lambda edge: edge.id.bytes,
+        )
+    )
+    if not owned:
+        return (), ()
+    edge_ids = {edge.id for edge in owned}
+    citing = tuple(
+        sorted(
+            (
+                join
+                for join in joins.rows
+                if join.edge_a_id in edge_ids or join.edge_b_id in edge_ids
+            ),
+            key=lambda join: join.id.bytes,
+        )
+    )
+    for edge in owned:
+        if stream.current_status(edge.id) is None:
+            raise ValueError("An edge has a status event.")
+    for join in citing:
+        if stream.current_status(join.id) is None:
+            raise ValueError("A join has a status event.")
+    return tuple(edge.id for edge in owned), tuple(join.id for join in citing)
