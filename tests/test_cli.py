@@ -467,3 +467,203 @@ def test_agree_writes_under_benchmarks_and_refuses_a_join_file(tmp_path: Path) -
     assert refused.stdout == ""
     assert (benchmarks / "labels.json").read_bytes() == labels
     assert list((benchmarks / "outline_agreement").glob("*.json")) == [report_path]
+
+
+def _files(directory: Path) -> set[Path]:
+    return {path for path in directory.rglob("*") if path.is_file()}
+
+
+def test_edge_prints_millimetre_chords_or_a_pixel_failure(tmp_path: Path) -> None:
+    _benchmarks, fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    traced = _run(
+        "edge",
+        str(fragment),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert traced.returncode == 0, traced.stderr
+    printed = json.loads(traced.stdout)
+    assert printed["record"] == "ChordEdges"
+    assert printed["edges"]
+    assert {edge["epistemic_class"] for edge in printed["edges"]} == {"interpretation"}
+    assert printed["envelope"]["algorithm_name"] == "edge_chord"
+    assert printed["envelope"]["model_hash"] == "absent"
+    assert "random_seed" not in printed["envelope"]
+    assert "correct_join" not in traced.stdout
+    assert "pose" not in traced.stdout
+
+    pixel = _run(
+        "edge",
+        str(fragment),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+    )
+    assert pixel.returncode == 1
+    failure = json.loads(pixel.stdout)
+    assert failure == {
+        "record": "FailedEdgeChord",
+        "run_id": failure["run_id"],
+        "status": "failed",
+    }
+    assert "geometry" not in pixel.stdout
+    assert "pose" not in pixel.stdout
+    assert "translation" not in pixel.stdout
+
+
+def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> None:
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    assert len(fragments) >= 3
+    labels = (benchmarks / "labels.json").read_bytes()
+    ranked = _run(
+        "rank",
+        str(fragments[0]),
+        str(fragments[2]),
+        "--label",
+        "piece-a",
+        "--label",
+        "piece-b",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert ranked.returncode == 0, ranked.stderr
+    printed = json.loads(ranked.stdout)
+    assert printed["record"] == "physical_join_order"
+    scores = [item["score"] for item in printed["joins"]]
+    assert scores
+    assert scores == sorted(scores, reverse=True)
+    assert {item["epistemic_class"] for item in printed["joins"]} == {"hypothesis"}
+    assert {item["channel"] for item in printed["joins"]} == {"physical"}
+    assert printed["envelope"]["algorithm_name"] == "pairwise_rigid_join"
+    assert "pose" not in ranked.stdout
+    assert "correct_join" not in ranked.stdout
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    missing = _run(
+        "rank",
+        str(fragments[0]),
+        str(fragments[2]),
+        "--label",
+        "piece-a",
+        "--label",
+        "piece-b",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+    )
+    assert missing.returncode == 1
+    failure = json.loads(missing.stdout)
+    assert failure["record"] == "FailedPairwiseJoin"
+    assert failure["status"] == "failed"
+    assert "joins" not in failure
+    assert "pose" not in missing.stdout
+    assert "translation" not in missing.stdout
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    refused = _run(
+        "rank",
+        str(benchmarks / "labels.json"),
+        "--label",
+        "piece-a",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert refused.returncode == 2
+    assert "BenchmarkLabel join file" in refused.stderr
+    assert refused.stdout == ""
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+
+def test_recall_writes_only_a_new_report(tmp_path: Path) -> None:
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    assert len(fragments) >= 3
+    labels = (benchmarks / "labels.json").read_bytes()
+    provenance = (benchmarks / "provenance.json").read_bytes()
+    before = _files(benchmarks)
+    image_bytes = _files(images)
+    recalled = _run(
+        "recall",
+        str(fragments[0]),
+        str(fragments[2]),
+        "--benchmarks",
+        str(benchmarks),
+        "--k",
+        "1",
+        "--label",
+        "piece-a",
+        "--label",
+        "piece-b",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert recalled.returncode == 0, recalled.stderr
+    report = json.loads(recalled.stdout)
+    assert report["k"] == 1
+    assert report["algorithm_name"] == "pairwise_rigid_join"
+    assert "recall" in report
+    assert "correct_join" not in recalled.stdout
+    report_path = benchmarks / "join_recall" / "join-recall-0001.json"
+    assert _files(benchmarks) - before == {report_path}
+    assert (benchmarks / "labels.json").read_bytes() == labels
+    assert (benchmarks / "provenance.json").read_bytes() == provenance
+    assert _files(images) == image_bytes
+    assert not (tmp_path / "originals").exists()
+    assert not (benchmarks / "manifest.json").exists()
+
+    refused = _run(
+        "recall",
+        str(benchmarks / "labels.json"),
+        "--benchmarks",
+        str(benchmarks),
+        "--k",
+        "1",
+        "--label",
+        "piece-a",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert refused.returncode == 2
+    assert "BenchmarkLabel join file" in refused.stderr
+    assert refused.stdout == ""
+    assert (benchmarks / "labels.json").read_bytes() == labels
+    assert _files(benchmarks) - before == {report_path}

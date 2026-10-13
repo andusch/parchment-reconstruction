@@ -1,14 +1,15 @@
 """Headless console for ingest, frames, provenance, and fixture generation.
 
 The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
-``prw.synthetic_tear``, ``prw.segment``, ``prw.scale``, and
-``prw.outline_agreement``. Command names and flags are unfrozen. They are
-not a stable interface. The project format is still Q-ENG-01 in
-``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open a
-network connection, does not start a worker, and does not write
-``manifest.json`` or ``originals/``. An absent ``fragment-<integer>.tif`` is
-the fragment at that index in the sibling ``image_manifest.json``. An
-existing file is read as given.
+``prw.synthetic_tear``, ``prw.segment``, ``prw.scale``,
+``prw.outline_agreement``, ``prw.edge_chord``, ``prw.pairwise_join``,
+``prw.join_rank``, and ``prw.join_recall``. Command names and flags are
+unfrozen. They are not a stable interface. The project format is still
+Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not import Qt,
+does not open a network connection, does not start a worker, and does not
+write ``manifest.json`` or ``originals/``. An absent
+``fragment-<integer>.tif`` is the fragment at that index in the sibling
+``image_manifest.json``. An existing file is read as given.
 """
 
 from __future__ import annotations
@@ -16,11 +17,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from prw.edge_chord import ChordEdges, EdgeChordLog, FailedEdgeChord
 from prw.fixture_tiff import UnsupportedFixtureLayout
 from prw.frames import CoordinateFrame
 from prw.identity import ABSENT, canonical_json, content_id
@@ -30,8 +33,17 @@ from prw.ingest import (
     VerifiedBytes,
     ingest_bytes,
 )
+from prw.join_rank import physical_join_order
+from prw.join_recall import write_join_recall
+from prw.joins import JoinHypothesis
 from prw.outline_agreement import write_outline_agreement
 from prw.outlines import FragmentOutlineRevision
+from prw.pairwise_join import (
+    FailedPairwiseJoin,
+    FragmentChords,
+    PairwiseJoinLog,
+    PairwiseJoins,
+)
 from prw.provenance import ProvenanceEnvelope
 from prw.scale import CallerScale, ScaledOutline, ScaleLog
 from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
@@ -54,9 +66,10 @@ def _parser() -> argparse.ArgumentParser:
         prog="prw",
         description=(
             "Headless calls for ingest, frames, provenance, the synthetic "
-            "fixture generator, segmentation, caller-supplied scale, and "
-            "outline agreement. Command names are unfrozen and are not a "
-            "stable interface. The project format is still Q-ENG-01."
+            "fixture generator, segmentation, caller-supplied scale, outline "
+            "agreement, chord edges, pairwise joins, and join recall. "
+            "Command names are unfrozen and are not a stable interface. "
+            "The project format is still Q-ENG-01."
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
@@ -121,7 +134,44 @@ def _parser() -> argparse.ArgumentParser:
     )
     agree.add_argument("--frame", required=True)
     _add_segment_arguments(agree)
+
+    edge = commands.add_parser(
+        "edge",
+        help="Print chord edges for one outline. Unfrozen; not a stable interface.",
+    )
+    _add_segment_arguments(edge)
+    _add_scale_arguments(edge)
+    edge.add_argument("--minimum-edge-length-mm", type=float, default=0.0)
+
+    rank = commands.add_parser(
+        "rank",
+        help="Print pairwise joins in physical order. Unfrozen.",
+    )
+    _add_pool_arguments(rank)
+
+    recall = commands.add_parser(
+        "recall",
+        help="Write join recall at K. Unfrozen; not a stable interface.",
+    )
+    _add_pool_arguments(recall)
+    recall.add_argument("--benchmarks", type=Path, required=True)
+    recall.add_argument("--k", type=int, required=True)
+    recall.add_argument("--correspondence", action="append", default=None)
     return parser
+
+
+def _add_scale_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--pixels-per-mm", type=float, default=None)
+    parser.add_argument("--uncertainty", type=float, default=None)
+
+
+def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("paths", nargs="+", type=Path)
+    parser.add_argument("--label", action="append", dest="labels", required=True)
+    parser.add_argument("--foreground-threshold", type=int, required=True)
+    parser.add_argument("--code-version", required=True)
+    _add_scale_arguments(parser)
+    parser.add_argument("--minimum-edge-length-mm", type=float, default=0.0)
 
 
 def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
@@ -298,36 +348,87 @@ def _cmd_segment(args: argparse.Namespace) -> int:
     if not isinstance(segmented, SegmentedOutline):
         _print_failure(segmented)
         return 1
-    if args.pixels_per_mm is None and args.uncertainty is None:
+    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    if args.pixels_per_mm is None:
         _print_outline(
             segmented.outline,
             frame=segmented.frame.kind,
             envelope=segmented.run.provenance,
         )
         return 0
-    if args.pixels_per_mm is None or args.uncertainty is None:
-        raise ValueError("pixels_per_mm and uncertainty are supplied together.")
-    scaled = ScaleLog().apply(
-        segmented.outline,
-        segmented.frame,
-        CallerScale(
-            pixels_per_mm=args.pixels_per_mm,
-            uncertainty=args.uncertainty,
-            producer="human",
-        ),
-        source_hashes=segmented.run.provenance.source_hashes,
-        code_version=segmented.run.provenance.code_version,
-        decoder_name=segmented.run.provenance.decoder_name,
-        decoder_version=segmented.run.provenance.decoder_version,
-        recorded_at=_utc_now(),
-    )
-    if not isinstance(scaled, ScaledOutline):
-        raise ValueError("A supplied scale stores a millimetre outline.")
+    scaled = _apply_scale(segmented, args)
     _print_outline(
         scaled.outline,
         frame=scaled.frame.kind,
         envelope=scaled.run.provenance,
     )
+    return 0
+
+
+def _cmd_edge(args: argparse.Namespace) -> int:
+    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    presented = _presented_bytes(args.path)
+    segmented = _segment_presented(args, presented)
+    if not isinstance(segmented, SegmentedOutline):
+        _print_failure(segmented)
+        return 1
+    if args.pixels_per_mm is None:
+        traced = _trace(
+            segmented.outline,
+            segmented.frame,
+            segmented.run.provenance,
+            args,
+        )
+    else:
+        scaled = _apply_scale(segmented, args)
+        traced = _trace(scaled.outline, scaled.frame, scaled.run.provenance, args)
+    if isinstance(traced, FailedEdgeChord):
+        _print_run_failure("FailedEdgeChord", traced.run.id)
+        return 1
+    _print_edges(traced)
+    return 0
+
+
+def _cmd_rank(args: argparse.Namespace) -> int:
+    prepared = _pool(args, "A BenchmarkLabel join file is not a rank path.")
+    if isinstance(prepared, int):
+        return prepared
+    result = PairwiseJoinLog().propose(
+        prepared,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+    if isinstance(result, FailedPairwiseJoin):
+        _print_run_failure("FailedPairwiseJoin", result.run.id)
+        return 1
+    _print_ranked(
+        result,
+        physical_join_order(result.joins, (result.run,), result.proposed),
+    )
+    return 0
+
+
+def _cmd_recall(args: argparse.Namespace) -> int:
+    prepared = _pool(args, "A BenchmarkLabel join file is not a recall path.")
+    if isinstance(prepared, int):
+        return prepared
+    result = PairwiseJoinLog().propose(
+        prepared,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+    if isinstance(result, FailedPairwiseJoin):
+        _print_run_failure("FailedPairwiseJoin", result.run.id)
+        return 1
+    ordered = physical_join_order(result.joins, (result.run,), result.proposed)
+    report = write_join_recall(
+        args.benchmarks,
+        envelope=result.run.provenance,
+        ranked_joins=ordered,
+        k=args.k,
+        correspondence=_correspondence_map(args.correspondence, prepared),
+    )
+    _print_record(json.loads(report.read_text(encoding="utf-8")))
     return 0
 
 
@@ -351,16 +452,201 @@ def _cmd_agree(args: argparse.Namespace) -> int:
     return 0
 
 
-def _segment_presented(args: argparse.Namespace, presented: bytes) -> Any:
+def _segment_presented(
+    args: argparse.Namespace,
+    presented: bytes,
+    label: str | None = None,
+) -> Any:
+    stored_label = args.label if label is None else label
     return SegmentationLog().segment(
         presented,
-        project_id=content_id(["cli-segment", args.label]),
-        label=args.label,
+        project_id=content_id(["cli-segment", stored_label]),
+        label=stored_label,
         foreground_threshold=args.foreground_threshold,
         code_version=args.code_version,
         recorded_at=_utc_now(),
-        expected_hash=args.expected,
+        expected_hash=getattr(args, "expected", None),
     )
+
+
+def _require_scale_pair(pixels_per_mm: float | None, uncertainty: float | None) -> None:
+    if (pixels_per_mm is None) != (uncertainty is None):
+        raise ValueError("pixels_per_mm and uncertainty are supplied together.")
+
+
+def _apply_scale(
+    segmented: SegmentedOutline, args: argparse.Namespace
+) -> ScaledOutline:
+    scaled = ScaleLog().apply(
+        segmented.outline,
+        segmented.frame,
+        CallerScale(
+            pixels_per_mm=args.pixels_per_mm,
+            uncertainty=args.uncertainty,
+            producer="human",
+        ),
+        source_hashes=segmented.run.provenance.source_hashes,
+        code_version=segmented.run.provenance.code_version,
+        decoder_name=segmented.run.provenance.decoder_name,
+        decoder_version=segmented.run.provenance.decoder_version,
+        recorded_at=_utc_now(),
+    )
+    if not isinstance(scaled, ScaledOutline):
+        raise ValueError("A supplied scale stores a millimetre outline.")
+    return scaled
+
+
+def _trace(
+    outline: FragmentOutlineRevision,
+    frame: CoordinateFrame,
+    envelope: ProvenanceEnvelope,
+    args: argparse.Namespace,
+) -> ChordEdges | FailedEdgeChord:
+    return EdgeChordLog().build(
+        outline,
+        frame,
+        envelope,
+        minimum_edge_length_mm=args.minimum_edge_length_mm,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+
+
+def _label_pairs(
+    paths: Sequence[Path],
+    labels: Sequence[str],
+) -> tuple[tuple[Path, str], ...]:
+    if isinstance(labels, str) or len(labels) != len(paths):
+        raise ValueError("Each fragment image has one label.")
+    return tuple(zip(paths, labels, strict=True))
+
+
+def _pool(
+    args: argparse.Namespace,
+    refuse_message: str,
+) -> tuple[FragmentChords, ...] | int:
+    pairs = _label_pairs(args.paths, args.labels)
+    for path, _label in pairs:
+        _refuse_join_label_path(path, refuse_message)
+    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    pool: list[FragmentChords] = []
+    for path, label in pairs:
+        presented = _presented_bytes(path)
+        segmented = _segment_presented(args, presented, label)
+        if not isinstance(segmented, SegmentedOutline):
+            _print_failure(segmented)
+            return 1
+        contribution = _chords_for(segmented, args)
+        if isinstance(contribution, FailedEdgeChord):
+            _print_run_failure("FailedEdgeChord", contribution.run.id)
+            return 1
+        pool.append(contribution)
+    return tuple(pool)
+
+
+def _chords_for(
+    segmented: SegmentedOutline,
+    args: argparse.Namespace,
+) -> FragmentChords | FailedEdgeChord:
+    fragment = segmented.fragment.confirm()
+    if args.pixels_per_mm is None:
+        return FragmentChords(
+            fragment=fragment,
+            frame=segmented.frame,
+            edges=(),
+            envelope=segmented.run.provenance,
+        )
+    scaled = _apply_scale(segmented, args)
+    traced = _trace(scaled.outline, scaled.frame, scaled.run.provenance, args)
+    if isinstance(traced, FailedEdgeChord):
+        return traced
+    return FragmentChords(
+        fragment=fragment,
+        frame=traced.frame,
+        edges=traced.edges,
+        envelope=traced.run.provenance,
+        observation=scaled.observation,
+        transform=scaled.transform,
+    )
+
+
+def _correspondence_map(
+    pairs: Sequence[str] | None,
+    pool: Sequence[FragmentChords],
+) -> dict[uuid.UUID, uuid.UUID]:
+    by_label = {item.fragment.label: item.fragment.id for item in pool}
+    mapped: dict[uuid.UUID, uuid.UUID] = {}
+    for pair in pairs or ():
+        label, separator, raw = pair.partition("=")
+        if separator != "=" or label == "" or raw == "":
+            raise ValueError("A correspondence is label=fixture-fragment-id.")
+        project_id = by_label.get(label)
+        if project_id is None:
+            raise ValueError("A correspondence label is one of the fragment labels.")
+        if project_id in mapped:
+            raise ValueError("A fragment label is given once.")
+        try:
+            fixture_id = uuid.UUID(raw)
+        except ValueError as exc:
+            raise ValueError("A fixture fragment id is a UUID.") from exc
+        mapped[project_id] = fixture_id
+    return mapped
+
+
+def _print_edges(result: ChordEdges) -> None:
+    _print_record(
+        {
+            "record": "ChordEdges",
+            "edges": [
+                {
+                    "id": edge.id,
+                    "epistemic_class": edge.epistemic_class,
+                    "producer": edge.producer,
+                    "geometry": edge.geometry,
+                }
+                for edge in result.edges
+            ],
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+
+
+def _print_ranked(
+    result: PairwiseJoins,
+    ordered: Sequence[JoinHypothesis],
+) -> None:
+    _print_record(
+        {
+            "record": "physical_join_order",
+            "joins": [
+                {
+                    "id": join.id,
+                    "epistemic_class": join.epistemic_class,
+                    "fragment_a_id": join.fragment_a_id,
+                    "fragment_b_id": join.fragment_b_id,
+                    "score": join.scores[0].value,
+                    "channel": join.scores[0].channel,
+                }
+                for join in ordered
+            ],
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+
+
+def _print_run_failure(record: str, run_id: uuid.UUID) -> None:
+    _print_record({"record": record, "run_id": run_id, "status": "failed"})
+
+
+def _refuse_join_label_path(path: Path, message: str) -> None:
+    if not path.is_file():
+        return
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return
+    if _contains_join_label(loaded):
+        raise ValueError(message)
 
 
 def _print_outline(
@@ -530,6 +816,9 @@ _COMMANDS = {
     "generate": _cmd_generate,
     "segment": _cmd_segment,
     "agree": _cmd_agree,
+    "edge": _cmd_edge,
+    "rank": _cmd_rank,
+    "recall": _cmd_recall,
 }
 
 
