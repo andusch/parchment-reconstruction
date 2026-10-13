@@ -1,10 +1,13 @@
 """Parchment reconstruction workbench.
 
 Headless use cases live in ``prw.ingest``, ``prw.frames``, ``prw.outlines``,
-``prw.provenance``, ``prw.synthetic_tear``, ``prw.fixture_tiff``,
-``prw.segment``, ``prw.scale``, and ``prw.outline_agreement``.
+``prw.provenance``, ``prw.joins``, ``prw.edge_chord``, ``prw.pairwise_join``,
+``prw.join_rank``, ``prw.synthetic_tear``,
+``prw.fixture_tiff``, ``prw.segment``, ``prw.scale``,
+``prw.outline_agreement``, and ``prw.join_recall``.
 ``python -m prw.cli`` calls ingest, frames, provenance, the synthetic fixture
-generator, segmentation, caller-supplied scale, and outline agreement.
+generator, segmentation, caller-supplied scale, outline agreement, chord
+edges, pairwise joins, and join recall.
 ``prw.fixture_tiff`` reads that writer's uncompressed grayscale layout
 only. It is not a decoder for arbitrary scans. Command names are unfrozen
 and are not a stable interface. The project format is still Q-ENG-01 in

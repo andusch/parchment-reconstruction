@@ -60,6 +60,8 @@ Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) 
 
 **Blocked by.** [Q-SCI-07](ALGORITHM.md#q-sci-07) only if a triple-fragment type is required. Pairwise joins may proceed under the labeled proposal. [Q-SCI-19](ALGORITHM.md#q-sci-19) blocks using hair and flesh side. [Q-PRD-07](PRD.md#q-prd-07) blocks a capacity or performance target.
 
+Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02.md) join records, [P3-03](../tasks/P3-03.md) chord edges, [P3-04](../tasks/P3-04.md) pairwise proposals, [P3-05](../tasks/P3-05.md) physical rank, [P3-06](../tasks/P3-06.md) outline invalidation, [P3-07](../tasks/P3-07.md) join recall at K, and [P3-08](../tasks/P3-08.md) headless CLI.
+
 ## P4
 
 **Goal.** Search top-N page assemblies on the synthetic fixture.

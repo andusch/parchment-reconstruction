@@ -41,7 +41,7 @@ The target type and the acceptable scale error are [Q-SCI-10](SCAN_PROTOCOL.md#q
 ### 4. Build edge descriptors
 
 - **Inputs.** An outline and, when scale exists, the transform into `fragment_local_mm`.
-- **Outputs.** `EdgeArc` rows in `fragment_local_mm`, scoped to that outline revision, and the descriptors the join stage will consume. Descriptors are epistemic class `interpretation`, producer `machine`, and travel inside the run's provenance.
+- **Outputs.** `EdgeArc` rows in `fragment_local_mm`, scoped to that outline revision, and the descriptors the join stage will consume. Descriptors are epistemic class `interpretation`, producer `machine`, and travel inside the run's provenance. The implemented algorithm `edge_chord` records descriptor `chord`: a non-millimetre outline is a failed run, and an outline with no usable side is a completed run with no edges.
 - **Failure.** An outline with no usable edge yields no join that names that outline. The outline itself remains. Superseding the outline revision invalidates its edge arcs and the join candidates that cite them. Those rows stay stored and leave the rank list.
 
 Descriptor choice and numeric parameters are part of the parameter blob. P0 does not set them.
@@ -51,6 +51,8 @@ Descriptor choice and numeric parameters are part of the parameter blob. P0 does
 - **Inputs.** Edge descriptors for a fragment pool, and the calibration observations those edges depend on.
 - **Outputs.** `JoinHypothesis` rows with a rigid relative pose and a `physical` score. Rank follows the `physical` channel.
 - **Failure.** When millimetre calibration is missing, do not emit a millimetre pose. The stage may refuse to rank rather than rank in mixed units.
+
+The implemented algorithm `pairwise_rigid_join` version `1` scores each candidate by `negative_absolute_length_difference`, which is not a probability and does not mean the edges meet.
 
 Joins in this contract are pairwise. Three fragments meeting at a point are [Q-SCI-07](#q-sci-07). Hair side and flesh side are [Q-SCI-19](#q-sci-19).
 
