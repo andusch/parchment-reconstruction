@@ -148,12 +148,14 @@ def _parser() -> argparse.ArgumentParser:
         help="Print pairwise joins in physical order. Unfrozen.",
     )
     _add_pool_arguments(rank)
+    _accept_paths_between_labels(rank)
 
     recall = commands.add_parser(
         "recall",
         help="Write join recall at K. Unfrozen; not a stable interface.",
     )
     _add_pool_arguments(recall)
+    _accept_paths_between_labels(recall)
     recall.add_argument("--benchmarks", type=Path, required=True)
     recall.add_argument("--k", type=int, required=True)
     recall.add_argument("--correspondence", action="append", default=None)
@@ -163,6 +165,35 @@ def _parser() -> argparse.ArgumentParser:
 def _add_scale_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--pixels-per-mm", type=float, default=None)
     parser.add_argument("--uncertainty", type=float, default=None)
+
+
+def _accept_paths_between_labels(parser: argparse.ArgumentParser) -> None:
+    """Keep image paths that are written after a ``--label`` flag.
+
+    The default parser fills ``paths`` only before the first optional, so
+    ``image --label name image --label name`` reports the later images as
+    unrecognized arguments.
+    """
+    original = argparse.ArgumentParser.parse_known_args
+    parsing_inner = False
+
+    def parse_known_args(
+        args: Sequence[str] | None = None,
+        namespace: argparse.Namespace | None = None,
+    ) -> tuple[argparse.Namespace, list[str]]:
+        nonlocal parsing_inner
+        if parsing_inner:
+            return original(parser, args, namespace)
+        parsing_inner = True
+        try:
+            parsed, unknown = argparse.ArgumentParser.parse_known_intermixed_args(
+                parser, args, namespace
+            )
+        finally:
+            parsing_inner = False
+        return parsed, unknown
+
+    parser.parse_known_args = parse_known_args  # type: ignore[method-assign, assignment]
 
 
 def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:

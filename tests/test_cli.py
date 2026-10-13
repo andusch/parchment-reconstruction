@@ -558,6 +558,28 @@ def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> N
     assert "correct_join" not in ranked.stdout
     assert (benchmarks / "labels.json").read_bytes() == labels
 
+    interleaved = _run(
+        "rank",
+        str(fragments[0]),
+        "--label",
+        "piece-a",
+        str(fragments[2]),
+        "--label",
+        "piece-b",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert interleaved.returncode == 0, interleaved.stderr
+    interleaved_printed = json.loads(interleaved.stdout)
+    assert [item["score"] for item in interleaved_printed["joins"]] == scores
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
     missing = _run(
         "rank",
         str(fragments[0]),
