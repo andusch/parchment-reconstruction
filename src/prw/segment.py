@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from prw.fixture_tiff import (
+    DECODER_NAME,
+    DECODER_VERSION,
     FixtureSamples,
     UnsupportedFixtureLayout,
     read_fixture_tiff,
@@ -43,7 +45,6 @@ from prw.provenance import (
     StatusStream,
     run_id_inputs,
 )
-from prw.synthetic_tear import DECODER_NAME, DECODER_VERSION
 
 ALGORITHM_NAME = "fragment_outline"
 ALGORITHM_VERSION = "1"

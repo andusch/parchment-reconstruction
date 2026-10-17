@@ -7,6 +7,10 @@ is the little-endian long at ``TIFF_WIDTH_OFFSET`` and ``ImageLength`` is
 the little-endian long at ``TIFF_HEIGHT_OFFSET``. Compression tag 259 is 1
 and photometric tag 262 is 1 (BlackIsZero).
 
+``DECODER_NAME`` is ``synthetic_uncompressed_tiff`` and ``DECODER_VERSION``
+is ``1``. This module defines those strings, ``TIFF_MAGIC``, and the width
+and height offsets. The writer imports them.
+
 This reader is not an approved decoder for arbitrary scans. ``Q-ENG-05`` in
 ``docs/OPEN_QUESTIONS.md`` stays open. Tags 282 and 283 are not read. A
 header resolution does not become ``pixels_per_mm``. A layout failure is a
@@ -19,13 +23,11 @@ import struct
 from dataclasses import dataclass
 from typing import Literal
 
-from prw.synthetic_tear import (
-    DECODER_NAME,
-    DECODER_VERSION,
-    TIFF_HEIGHT_OFFSET,
-    TIFF_MAGIC,
-    TIFF_WIDTH_OFFSET,
-)
+DECODER_NAME = "synthetic_uncompressed_tiff"
+DECODER_VERSION = "1"
+TIFF_MAGIC = b"II*\x00"
+TIFF_WIDTH_OFFSET = 18
+TIFF_HEIGHT_OFFSET = 30
 
 LayoutFailureKind = Literal[
     "different_ifd",
