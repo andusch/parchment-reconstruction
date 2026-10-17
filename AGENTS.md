@@ -60,3 +60,9 @@ weights. Tests, when they exist, use synthetic fixtures.
 - uv run ruff format --check .
 - uv run mypy src
 - uv run pytest -m "not slow"
+
+# Checked rules
+
+| Rule | Enforcer |
+| --- | --- |
+| A pool image is one flag and one existing path. | CLI parser test. |
