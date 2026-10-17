@@ -29,6 +29,8 @@ and not an approved decoder for arbitrary scans (``Q-ENG-05`` stays open):
   major, with compression tag 259 equal to 1 (none).
 - ``ImageWidth`` (tag 256) is a little-endian long at byte offset 18.
   ``ImageLength`` (tag 257) is a little-endian long at byte offset 30.
+  Those offsets, the magic, the decoder name ``synthetic_uncompressed_tiff``,
+  and decoder version ``1`` are the constants defined in ``fixture_tiff``.
 - The page image is ``PAGE_IMAGE_WIDTH`` by ``PAGE_IMAGE_HEIGHT`` pixels.
   Those counts are the page millimetres divided by ``MILLIMETRES_PER_PIXEL``.
   A fragment image is the axis-aligned bounds of the page pixels whose
@@ -54,6 +56,13 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from prw.fixture_tiff import (
+    DECODER_NAME,
+    DECODER_VERSION,
+    TIFF_HEIGHT_OFFSET,
+    TIFF_MAGIC,
+    TIFF_WIDTH_OFFSET,
+)
 from prw.frames import CoordinateFrame, polygon_centroid
 from prw.identity import ABSENT, canonical_json_bytes, content_id, hash_value
 from prw.provenance import ProvenanceEnvelope
@@ -62,16 +71,11 @@ type Point = tuple[float, float]
 
 ALGORITHM_NAME = "synthetic_tear"
 ALGORITHM_VERSION = "1"
-DECODER_NAME = "synthetic_uncompressed_tiff"
-DECODER_VERSION = "1"
 PAGE_WIDTH_MM = 100.0
 PAGE_HEIGHT_MM = 140.0
 MILLIMETRES_PER_PIXEL = 1.0
 PAGE_IMAGE_WIDTH = 100
 PAGE_IMAGE_HEIGHT = 140
-TIFF_MAGIC = b"II*\x00"
-TIFF_WIDTH_OFFSET = 18
-TIFF_HEIGHT_OFFSET = 30
 _BASE_LEVEL = 128
 _PIECE_COUNT = 4
 _CUT_JITTER_MM = 4.0
