@@ -60,3 +60,6 @@ weights. Tests, when they exist, use synthetic fixtures.
 - uv run ruff format --check .
 - uv run mypy src
 - uv run pytest -m "not slow"
+
+Agent debug logs are not tracked, enforced by the `git ls-files` gate and
+the gitignore pattern `.cursor/**/*.log`.
