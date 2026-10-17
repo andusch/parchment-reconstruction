@@ -1,9 +1,15 @@
 """Headless CLI entry point, without a display."""
 
+import argparse
+import contextlib
+import inspect
+import io
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 from prw.identity import hash_value
 from prw.outline_agreement import polygon_iou
@@ -292,16 +298,19 @@ def _distinguish_first_fragment(path: Path) -> bytes:
     return written
 
 
-def test_ordinal_fragment_reads_the_first_manifest_image(tmp_path: Path) -> None:
+def test_existing_image_is_itself_and_absent_ordinal_lists_manifest_names(
+    tmp_path: Path,
+) -> None:
     benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
     images = tmp_path / "images"
-    first, _names = _first_fragment(images)
+    first, names = _first_fragment(images)
     page = images / "page.tif"
     alias = images / "fragment-0.tif"
     alias.write_bytes(page.read_bytes())
     existing = _run("verify", str(alias))
     assert existing.returncode == 0, existing.stderr
     assert json.loads(existing.stdout)["content_hash"] == hash_value(page.read_bytes())
+    assert json.loads(existing.stdout)["content_hash"] != hash_value(first.read_bytes())
     alias.unlink()
 
     labels = benchmarks / "labels.json"
@@ -312,12 +321,21 @@ def test_ordinal_fragment_reads_the_first_manifest_image(tmp_path: Path) -> None
     written = _distinguish_first_fragment(first)
     digest = hash_value(written)
 
+    def _assert_absent(completed: subprocess.CompletedProcess[str]) -> None:
+        assert completed.returncode == 2
+        assert completed.stdout == ""
+        assert str(alias) in completed.stderr
+        assert "Fragment files:" in completed.stderr
+        assert "Traceback" not in completed.stderr
+        for name in names:
+            assert name in completed.stderr
+
     verified = _run("verify", str(alias))
     direct = _run("verify", str(first))
-    assert verified.returncode == 0, verified.stderr
     assert direct.returncode == 0, direct.stderr
-    assert verified.stdout == direct.stdout
-    assert json.loads(verified.stdout)["content_hash"] == digest
+    assert json.loads(direct.stdout)["content_hash"] == digest
+    _assert_absent(verified)
+    assert verified.stdout != direct.stdout
 
     segment_args = (
         "--label",
@@ -329,17 +347,20 @@ def test_ordinal_fragment_reads_the_first_manifest_image(tmp_path: Path) -> None
     )
     segmented = _run("segment", str(alias), *segment_args)
     direct_segment = _run("segment", str(first), *segment_args)
-    assert segmented.returncode == 0, segmented.stderr
-    assert segmented.stdout == direct_segment.stdout
-    assert json.loads(segmented.stdout)["envelope"]["source_hashes"] == [digest]
+    assert direct_segment.returncode == 0, direct_segment.stderr
+    assert json.loads(direct_segment.stdout)["envelope"]["source_hashes"] == [digest]
+    _assert_absent(segmented)
+    assert segmented.stdout != direct_segment.stdout
 
     scale_args = (*segment_args, "--pixels-per-mm", "10", "--uncertainty", "0.1")
     scaled = _run("segment", str(alias), *scale_args)
     direct_scaled = _run("segment", str(first), *scale_args)
-    assert scaled.returncode == 0, scaled.stderr
-    assert scaled.stdout == direct_scaled.stdout
-    assert json.loads(scaled.stdout)["frame"] == "fragment_local_mm"
-    assert json.loads(scaled.stdout)["envelope"]["source_hashes"] == [digest]
+    assert direct_scaled.returncode == 0, direct_scaled.stderr
+    direct_scaled_body = json.loads(direct_scaled.stdout)
+    assert direct_scaled_body["frame"] == "fragment_local_mm"
+    assert direct_scaled_body["envelope"]["source_hashes"] == [digest]
+    _assert_absent(scaled)
+    assert scaled.stdout != direct_scaled.stdout
     assert not labels.exists()
     assert parked.read_bytes() == original_labels
 
@@ -522,6 +543,147 @@ def test_edge_prints_millimetre_chords_or_a_pixel_failure(tmp_path: Path) -> Non
     assert "translation" not in pixel.stdout
 
 
+def test_one_repeated_pool_flag_parses() -> None:
+    import prw.cli as cli
+
+    parsed = cli._parser().parse_args(
+        [
+            "rank",
+            "--image",
+            "piece-a",
+            "a.tif",
+            "--image",
+            "piece-b",
+            "b.tif",
+            "--foreground-threshold",
+            "1",
+            "--code-version",
+            "test-code",
+        ]
+    )
+    assert parsed.images == [
+        ["piece-a", "a.tif"],
+        ["piece-b", "b.tif"],
+    ]
+    assert not hasattr(parsed, "paths")
+    assert not hasattr(parsed, "labels")
+
+    recalled = cli._parser().parse_args(
+        [
+            "recall",
+            "--image",
+            "piece-a",
+            "a.tif",
+            "--image",
+            "piece-b",
+            "b.tif",
+            "--benchmarks",
+            "benchmarks",
+            "--k",
+            "1",
+            "--foreground-threshold",
+            "1",
+            "--code-version",
+            "test-code",
+        ]
+    )
+    assert recalled.images == [
+        ["piece-a", "a.tif"],
+        ["piece-b", "b.tif"],
+    ]
+
+
+def test_interleaved_pool_argv_is_rejected() -> None:
+    import prw.cli as cli
+
+    commands = (
+        [
+            "rank",
+            "a.tif",
+            "--label",
+            "piece-a",
+            "b.tif",
+            "--label",
+            "piece-b",
+            "--foreground-threshold",
+            "1",
+            "--code-version",
+            "test-code",
+            "--pixels-per-mm",
+            "10",
+            "--uncertainty",
+            "0.1",
+        ],
+        [
+            "rank",
+            "a.tif",
+            "b.tif",
+            "--label",
+            "piece-a",
+            "--label",
+            "piece-b",
+            "--foreground-threshold",
+            "1",
+            "--code-version",
+            "test-code",
+            "--pixels-per-mm",
+            "10",
+            "--uncertainty",
+            "0.1",
+        ],
+        [
+            "recall",
+            "a.tif",
+            "--label",
+            "piece-a",
+            "b.tif",
+            "--label",
+            "piece-b",
+            "--benchmarks",
+            "benchmarks",
+            "--k",
+            "1",
+            "--foreground-threshold",
+            "1",
+            "--code-version",
+            "test-code",
+            "--pixels-per-mm",
+            "10",
+            "--uncertainty",
+            "0.1",
+        ],
+    )
+    for argv in commands:
+        stderr = io.StringIO()
+        with (
+            pytest.raises(SystemExit) as caught,
+            contextlib.redirect_stderr(stderr),
+        ):
+            cli._parser().parse_args(argv)
+        assert caught.value.code == 2
+        message = stderr.getvalue()
+        assert "the following arguments are required: --image" in message
+        assert "Traceback" not in message
+
+
+def test_assigning_parse_known_args_fails() -> None:
+    import prw.cli as cli
+
+    source = Path(inspect.getfile(cli)).read_text(encoding="utf-8")
+    assert "parse_known_args" not in source
+    assert "parse_known_intermixed_args" not in source
+    parser = cli._parser()
+    subparsers = next(
+        action
+        for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    for name in ("rank", "recall"):
+        command = subparsers.choices[name]
+        parse_known_args = command.parse_known_args
+        assert parse_known_args.__func__ is argparse.ArgumentParser.parse_known_args
+
+
 def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> None:
     benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
     images = tmp_path / "images"
@@ -530,12 +692,12 @@ def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> N
     labels = (benchmarks / "labels.json").read_bytes()
     ranked = _run(
         "rank",
-        str(fragments[0]),
-        str(fragments[2]),
-        "--label",
+        "--image",
         "piece-a",
-        "--label",
+        str(fragments[0]),
+        "--image",
         "piece-b",
+        str(fragments[2]),
         "--foreground-threshold",
         "1",
         "--code-version",
@@ -575,19 +737,47 @@ def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> N
         "--uncertainty",
         "0.1",
     )
-    assert interleaved.returncode == 0, interleaved.stderr
-    interleaved_printed = json.loads(interleaved.stdout)
-    assert [item["score"] for item in interleaved_printed["joins"]] == scores
+    assert interleaved.returncode == 2
+    assert interleaved.stdout == ""
+    assert "the following arguments are required: --image" in interleaved.stderr
+    assert "Traceback" not in interleaved.stderr
+    assert "physical_join_order" not in interleaved.stdout
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    missing_image = _run(
+        "rank",
+        "--image",
+        "piece-a",
+        str(images / "fragment-0.tif"),
+        "--image",
+        "piece-b",
+        str(fragments[2]),
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+    )
+    assert missing_image.returncode == 2
+    assert missing_image.stdout == ""
+    assert str(images / "fragment-0.tif") in missing_image.stderr
+    assert "Fragment files:" in missing_image.stderr
+    assert "Traceback" not in missing_image.stderr
+    for fragment in fragments:
+        assert fragment.name in missing_image.stderr
     assert (benchmarks / "labels.json").read_bytes() == labels
 
     missing = _run(
         "rank",
-        str(fragments[0]),
-        str(fragments[2]),
-        "--label",
+        "--image",
         "piece-a",
-        "--label",
+        str(fragments[0]),
+        "--image",
         "piece-b",
+        str(fragments[2]),
         "--foreground-threshold",
         "1",
         "--code-version",
@@ -604,9 +794,9 @@ def test_rank_prints_physical_order_and_refuses_a_join_file(tmp_path: Path) -> N
 
     refused = _run(
         "rank",
-        str(benchmarks / "labels.json"),
-        "--label",
+        "--image",
         "piece-a",
+        str(benchmarks / "labels.json"),
         "--foreground-threshold",
         "1",
         "--code-version",
@@ -633,16 +823,16 @@ def test_recall_writes_only_a_new_report(tmp_path: Path) -> None:
     image_bytes = _files(images)
     recalled = _run(
         "recall",
+        "--image",
+        "piece-a",
         str(fragments[0]),
+        "--image",
+        "piece-b",
         str(fragments[2]),
         "--benchmarks",
         str(benchmarks),
         "--k",
         "1",
-        "--label",
-        "piece-a",
-        "--label",
-        "piece-b",
         "--foreground-threshold",
         "1",
         "--code-version",
@@ -668,13 +858,13 @@ def test_recall_writes_only_a_new_report(tmp_path: Path) -> None:
 
     refused = _run(
         "recall",
+        "--image",
+        "piece-a",
         str(benchmarks / "labels.json"),
         "--benchmarks",
         str(benchmarks),
         "--k",
         "1",
-        "--label",
-        "piece-a",
         "--foreground-threshold",
         "1",
         "--code-version",

@@ -7,9 +7,9 @@ The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 unfrozen. They are not a stable interface. The project format is still
 Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not import Qt,
 does not open a network connection, does not start a worker, and does not
-write ``manifest.json`` or ``originals/``. An absent
-``fragment-<integer>.tif`` is the fragment at that index in the sibling
-``image_manifest.json``. An existing file is read as given.
+write ``manifest.json`` or ``originals/``. A pool image is one repeated
+flag with a label and an existing path. A missing path is an error that
+lists the fragment names in the sibling ``image_manifest.json``.
 """
 
 from __future__ import annotations
@@ -148,14 +148,12 @@ def _parser() -> argparse.ArgumentParser:
         help="Print pairwise joins in physical order. Unfrozen.",
     )
     _add_pool_arguments(rank)
-    _accept_paths_between_labels(rank)
 
     recall = commands.add_parser(
         "recall",
         help="Write join recall at K. Unfrozen; not a stable interface.",
     )
     _add_pool_arguments(recall)
-    _accept_paths_between_labels(recall)
     recall.add_argument("--benchmarks", type=Path, required=True)
     recall.add_argument("--k", type=int, required=True)
     recall.add_argument("--correspondence", action="append", default=None)
@@ -167,38 +165,16 @@ def _add_scale_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--uncertainty", type=float, default=None)
 
 
-def _accept_paths_between_labels(parser: argparse.ArgumentParser) -> None:
-    """Keep image paths that are written after a ``--label`` flag.
-
-    The default parser fills ``paths`` only before the first optional, so
-    ``image --label name image --label name`` reports the later images as
-    unrecognized arguments.
-    """
-    original = argparse.ArgumentParser.parse_known_args
-    parsing_inner = False
-
-    def parse_known_args(
-        args: Sequence[str] | None = None,
-        namespace: argparse.Namespace | None = None,
-    ) -> tuple[argparse.Namespace, list[str]]:
-        nonlocal parsing_inner
-        if parsing_inner:
-            return original(parser, args, namespace)
-        parsing_inner = True
-        try:
-            parsed, unknown = argparse.ArgumentParser.parse_known_intermixed_args(
-                parser, args, namespace
-            )
-        finally:
-            parsing_inner = False
-        return parsed, unknown
-
-    parser.parse_known_args = parse_known_args  # type: ignore[method-assign, assignment]
-
-
 def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("paths", nargs="+", type=Path)
-    parser.add_argument("--label", action="append", dest="labels", required=True)
+    parser.add_argument(
+        "--image",
+        action="append",
+        nargs=2,
+        required=True,
+        metavar=("LABEL", "PATH"),
+        dest="images",
+        help=("One pool image: a label and an existing path. Repeat for each image."),
+    )
     parser.add_argument("--foreground-threshold", type=int, required=True)
     parser.add_argument("--code-version", required=True)
     _add_scale_arguments(parser)
@@ -214,41 +190,15 @@ def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def _presented_bytes(path: Path) -> bytes:
-    """Read one fixture image.
+    """Read one fixture image that exists on disk.
 
-    An existing file is read as given. ``fragment-<integer>.tif`` is the
-    fragment at that index in the sibling ``image_manifest.json`` when that
-    file is absent. The caller receives bytes. Segmentation does not open
-    the manifest or a BenchmarkLabel file.
+    A missing path is an error that lists the fragment names in the sibling
+    image manifest. This reader does not open a BenchmarkLabel file.
     """
-    resolved = _resolve_image(path)
     try:
-        return resolved.read_bytes()
+        return path.read_bytes()
     except OSError as exc:
         raise ValueError(_missing_image_message(path)) from exc
-
-
-def _resolve_image(path: Path) -> Path:
-    if path.is_file():
-        return path
-    index = _ordinal_fragment_index(path.name)
-    manifest_path = path.parent / "image_manifest.json"
-    if index is None or not manifest_path.is_file():
-        return path
-    names = _manifest_fragment_names(manifest_path)
-    if index >= len(names):
-        raise ValueError(_missing_image_message(path, names))
-    return path.parent / names[index]
-
-
-def _ordinal_fragment_index(name: str) -> int | None:
-    stem, separator, suffix = name.rpartition(".")
-    if separator != "." or suffix != "tif" or not stem.startswith("fragment-"):
-        return None
-    digits = stem.removeprefix("fragment-")
-    if digits == "" or not digits.isdecimal():
-        return None
-    return int(digits)
 
 
 def _manifest_fragment_names(path: Path) -> list[str]:
@@ -543,20 +493,23 @@ def _trace(
     )
 
 
-def _label_pairs(
-    paths: Sequence[Path],
-    labels: Sequence[str],
-) -> tuple[tuple[Path, str], ...]:
-    if isinstance(labels, str) or len(labels) != len(paths):
-        raise ValueError("Each fragment image has one label.")
-    return tuple(zip(paths, labels, strict=True))
+def _image_pairs(images: Sequence[Sequence[str]]) -> tuple[tuple[Path, str], ...]:
+    """Return each repeated pool flag as a path and its label."""
+    if not images:
+        raise ValueError("A pool image is one label and one existing path.")
+    pairs: list[tuple[Path, str]] = []
+    for entry in images:
+        if len(entry) != 2 or entry[0] == "" or entry[1] == "":
+            raise ValueError("A pool image is one label and one existing path.")
+        pairs.append((Path(entry[1]), entry[0]))
+    return tuple(pairs)
 
 
 def _pool(
     args: argparse.Namespace,
     refuse_message: str,
 ) -> tuple[FragmentChords, ...] | int:
-    pairs = _label_pairs(args.paths, args.labels)
+    pairs = _image_pairs(args.images)
     for path, _label in pairs:
         _refuse_join_label_path(path, refuse_message)
     _require_scale_pair(args.pixels_per_mm, args.uncertainty)

@@ -63,3 +63,9 @@ weights. Tests, when they exist, use synthetic fixtures.
 
 Agent debug logs are not tracked, enforced by the `git ls-files` gate and
 the gitignore pattern `.cursor/**/*.log`.
+
+# Checked rules
+
+| Rule | Enforcer |
+| --- | --- |
+| A pool image is one flag and one existing path. | CLI parser test. |
