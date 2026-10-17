@@ -23,3 +23,9 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
+      - id: no-tracked-cursor-logs
+        name: no tracked cursor logs
+        entry: sh scripts/check_no_tracked_cursor_logs.sh
+        language: system
+        pass_filenames: false
+        always_run: true
