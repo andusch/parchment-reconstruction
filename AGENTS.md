@@ -61,8 +61,9 @@ weights. Tests, when they exist, use synthetic fixtures.
 - uv run mypy src
 - uv run pytest -m "not slow"
 
-# Enforcers
+# Checked rules
 
 | Rule | Enforcer |
 | --- | --- |
+| A pool image is one flag and one existing path. | CLI parser test. |
 | `segment`, `edge_chord`, `pairwise_join`, `join_rank`, and `scale` do not import the benchmark generator or the recall writers. | Import-graph test on those modules (`tests/test_solver_imports.py`). |
