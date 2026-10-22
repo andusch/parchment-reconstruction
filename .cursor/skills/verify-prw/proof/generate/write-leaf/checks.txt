@@ -1,0 +1,13 @@
+checks=pass
+feature=generate
+step=write-leaf
+exit_code=0
+random_seed=7
+fragment_images=4
+page_hash=sha256:381feda0921079e8f759fc1e7a36138bcf5fa3f7a8dde14f539c23325ed23204
+parameter_hash=sha256:ae0509f6655176c40c4804ea7d3b67c427c6ac2d350b069fea90278b87d5668a
+manifest_json=absent
+originals=absent
+stdout_has_hypothesis=no
+stdout_has_correct_join=no
+printed_hashes_match_files=yes

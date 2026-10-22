@@ -1,0 +1,14 @@
+doctor_ok=yes
+run_id=20261022T153310Z-67d0
+root=/tmp/prw-verify/20261022T153310Z-67d0
+repo=/workspace
+session=prw-verify-20261022T153310Z-67d0
+session_alive=yes
+python=3.12.3
+prw_version=0.0.0
+qt_imported=no
+cli_file=/workspace/src/prw/cli.py
+code_version=e454a6367eb9
+scratch_benchmarks=/tmp/prw-verify/20261022T153310Z-67d0/scratch/benchmarks
+scratch_images=/tmp/prw-verify/20261022T153310Z-67d0/scratch/images
+evidence=/tmp/prw-verify/20261022T153310Z-67d0/evidence

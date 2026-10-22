@@ -1,0 +1,520 @@
+#!/usr/bin/env bash
+# Isolated PTY harness for the parchment-workbench headless CLI.
+# Invocation is documented in .cursor/skills/verify-prw/SKILL.md.
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+REPO=$(cd "$SCRIPT_DIR/../../../.." && pwd)
+PARENT="${PRW_VERIFY_PARENT:-/tmp/prw-verify}"
+LATEST="$PARENT/latest"
+TMUX_CONF="/exec-daemon/tmux.portal.conf"
+export PATH="${HOME}/.local/bin:${PATH}"
+
+die() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+tmux_cmd() {
+  if [[ -f "$TMUX_CONF" ]]; then
+    tmux -f "$TMUX_CONF" "$@"
+  else
+    tmux "$@"
+  fi
+}
+
+usage() {
+  cat <<'EOF'
+usage: verify-prw [--root PATH] <command>
+
+  launch
+  doctor
+  drive --feature NAME --step NAME -- <prw-args>
+  observe --feature NAME --step NAME
+  cleanup
+
+Paths passed to drive must stay inside this run's scratch directory.
+EOF
+}
+
+require_tools() {
+  command -v uv >/dev/null 2>&1 || die "uv is not on PATH"
+  command -v tmux >/dev/null 2>&1 || die "tmux is not on PATH"
+  command -v git >/dev/null 2>&1 || die "git is not on PATH"
+  [[ -f "$REPO/pyproject.toml" ]] || die "repo root is not parchment-workbench: $REPO"
+  grep -q 'name = "parchment-workbench"' "$REPO/pyproject.toml" ||
+    die "pyproject.toml is not parchment-workbench: $REPO"
+}
+
+assert_parent_outside_repo() {
+  local parent_real repo_real
+  parent_real=$(realpath -m "$PARENT")
+  repo_real=$(realpath "$REPO")
+  [[ "$parent_real" == /tmp || "$parent_real" == /tmp/* ]] ||
+    die "PRW_VERIFY_PARENT must stay under /tmp: $parent_real"
+  [[ "$parent_real" != "$repo_real" && "$parent_real" != "$repo_real"/* ]] ||
+    die "verification root must stay outside the checkout"
+  case "$parent_real" in
+    */data|*/data/*|*/scans|*/scans/*|*/real_data|*/real_data/*)
+      die "verification root overlaps a forbidden data path"
+      ;;
+  esac
+}
+
+load_root() {
+  local root_flag="${1:-}"
+  if [[ -n "$root_flag" ]]; then
+    ROOT=$root_flag
+  elif [[ -n "${PRW_VERIFY_ROOT:-}" ]]; then
+    ROOT=$PRW_VERIFY_ROOT
+  elif [[ -f "$LATEST" ]]; then
+    ROOT=$(<"$LATEST")
+  else
+    die "no verification root; run launch and export PRW_VERIFY_ROOT"
+  fi
+  [[ -f "$ROOT/run.env" ]] || die "missing run.env under $ROOT"
+  # run.env is written by launch with quoted assignments.
+  # shellcheck disable=SC1090
+  source "$ROOT/run.env"
+  [[ -n "${run_id:-}" && -n "${session:-}" && -n "${evidence:-}" ]] ||
+    die "run.env is incomplete: $ROOT/run.env"
+}
+
+token() {
+  local value=$1
+  [[ "$value" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "unsafe token: $value"
+}
+
+path_is_forbidden() {
+  local raw=$1
+  local resolved parent base repo_real scratch_real
+  if [[ "$raw" == --*=* ]]; then
+    raw=${raw#*=}
+  fi
+  [[ "$raw" == */* || "$raw" == .* || "$raw" == ~* ]] || return 1
+  if [[ -e "$raw" ]]; then
+    resolved=$(realpath "$raw")
+  else
+    parent=$(dirname -- "$raw")
+    base=$(basename -- "$raw")
+    if [[ -d "$parent" ]]; then
+      resolved="$(realpath "$parent")/$base"
+    else
+      resolved=$raw
+    fi
+  fi
+  case "/$resolved/" in
+    */data/* | */scans/* | */real_data/*) return 0 ;;
+  esac
+  repo_real=$(realpath "$REPO")
+  case "$resolved" in
+    "$repo_real" | "$repo_real"/*) return 0 ;;
+  esac
+  scratch_real=$(realpath "$ROOT/scratch")
+  case "$resolved" in
+    "$scratch_real" | "$scratch_real"/*) return 1 ;;
+  esac
+  return 0
+}
+
+cmd_launch() {
+  require_tools
+  assert_parent_outside_repo
+  local run_id root repo_real code_version session
+  run_id="$(date -u +%Y%m%dT%H%M%SZ)-$(od -An -N2 -tx1 /dev/urandom | tr -d ' \n')"
+  root="$PARENT/$run_id"
+  [[ ! -e "$root" ]] || die "verification root already exists: $root"
+  repo_real=$(realpath "$REPO")
+  code_version=$(git -C "$REPO" rev-parse --short=12 HEAD)
+  session="prw-verify-${run_id}"
+  mkdir -p "$root/scratch/benchmarks" "$root/scratch/images" "$root/evidence"
+  cat >"$root/run.env" <<EOF
+run_id=$(printf '%q' "$run_id")
+root=$(printf '%q' "$root")
+repo=$(printf '%q' "$repo_real")
+session=$(printf '%q' "$session")
+scratch=$(printf '%q' "$root/scratch")
+scratch_benchmarks=$(printf '%q' "$root/scratch/benchmarks")
+scratch_images=$(printf '%q' "$root/scratch/images")
+evidence=$(printf '%q' "$root/evidence")
+code_version=$(printf '%q' "$code_version")
+created_at=$(printf '%q' "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+EOF
+  printf '%s\n' "$session" >"$root/sessions.txt"
+  (
+    cd "$REPO"
+    uv sync
+  ) >"$root/evidence/uv-sync.txt" 2>&1 || {
+    printf '%s\n' "uv sync failed; see $root/evidence/uv-sync.txt" >&2
+    exit 1
+  }
+  local ready_script="$root/evidence/ready.sh"
+  cat >"$ready_script" <<EOF
+#!/usr/bin/env bash
+set -u
+export PATH=$(printf '%q' "$PATH")
+cd $(printf '%q' "$repo_real")
+line=\$(uv run python -c 'import prw; print("PRW_VERIFY_READY", prw.__version__)')
+printf '%s\n' "\$line"
+printf '%s\n' "\$line" > $(printf '%q' "$root/ready")
+sleep infinity
+EOF
+  chmod +x "$ready_script"
+  tmux_cmd new-session -d -s "$session" -c "$REPO" -- bash "$ready_script"
+  local _try
+  for _try in $(seq 1 80); do
+    if [[ -f "$root/ready" ]] && grep -qx 'PRW_VERIFY_READY 0.0.0' "$root/ready"; then
+      break
+    fi
+    sleep 0.25
+  done
+  if ! grep -qx 'PRW_VERIFY_READY 0.0.0' "$root/ready" 2>/dev/null; then
+    tmux_cmd kill-session -t "=$session" 2>/dev/null || true
+    die "launch did not reach PRW_VERIFY_READY 0.0.0 (root $root)"
+  fi
+  mkdir -p "$(dirname "$LATEST")"
+  printf '%s\n' "$root" >"$LATEST"
+  cat >"$root/evidence/launch.txt" <<EOF
+PRW_VERIFY_ROOT=$root
+SCRATCH_BENCHMARKS=$root/scratch/benchmarks
+SCRATCH_IMAGES=$root/scratch/images
+EVIDENCE=$root/evidence
+SESSION=$session
+CODE_VERSION=$code_version
+ready=PRW_VERIFY_READY 0.0.0
+EOF
+  cat "$root/evidence/launch.txt"
+}
+
+help_lists_commands() {
+  local text=$1
+  local name
+  for name in verify frame provenance generate segment agree edge rank recall; do
+    grep -E -q "(^|[[:space:],{])${name}([[:space:],}]|$)" <<<"$text" || return 1
+  done
+}
+
+cmd_doctor() {
+  require_tools
+  load_root "${1:-}"
+  local report="$evidence/doctor.txt"
+  local ok=yes
+  local note=""
+  fail() {
+    ok=no
+    note="${note}$1"$'\n'
+  }
+  local pane=""
+  if tmux_cmd has-session -t "=$session" 2>/dev/null; then
+    pane=$(tmux_cmd capture-pane -p -t "$session" -S -2000 || true)
+  else
+    fail "launch session is not alive: $session"
+  fi
+  if ! grep -q 'PRW_VERIFY_READY 0.0.0' <<<"$pane"; then
+    fail "launch pane is missing PRW_VERIFY_READY 0.0.0"
+  fi
+  if ! [[ -f "$root/ready" ]] || ! grep -qx 'PRW_VERIFY_READY 0.0.0' "$root/ready"; then
+    fail "ready file is missing PRW_VERIFY_READY 0.0.0"
+  fi
+  local repo_real parent_real scratch_real
+  repo_real=$(realpath "$repo")
+  parent_real=$(realpath -m "$PARENT")
+  scratch_real=$(realpath "$scratch")
+  [[ "$scratch_real" == "$parent_real"/* ]] || fail "scratch escaped the verification parent"
+  [[ "$scratch_real" != "$repo_real" && "$scratch_real" != "$repo_real"/* ]] ||
+    fail "scratch is inside the checkout"
+  [[ -d "$scratch_benchmarks" && -d "$scratch_images" ]] ||
+    fail "scratch directories are missing"
+  if [[ -e "$scratch/manifest.json" || -e "$root/manifest.json" || -d "$scratch/originals" || -d "$root/originals" ]]; then
+    fail "a project evidence marker is present"
+  fi
+  local py_report module_help entry_help session_alive=no
+  if tmux_cmd has-session -t "=$session" 2>/dev/null; then
+    session_alive=yes
+  fi
+  if ! py_report=$(
+    cd "$repo" && uv run python -c '
+import sys
+import prw
+import prw.cli
+roots = {name.split(".", 1)[0].lower() for name in sys.modules}
+qt = sorted(roots & {"pyqt5", "pyqt6", "pyside2", "pyside6", "pyqt"})
+print("python=" + ".".join(str(part) for part in sys.version_info[:3]))
+print("prw_version=" + prw.__version__)
+print("qt_imported=" + ("yes" if qt else "no"))
+print("cli_file=" + prw.cli.__file__)
+'
+  ); then
+    fail "prw import failed"
+    py_report=""
+  fi
+  local python_version prw_version qt_imported cli_file
+  python_version=$(sed -n 's/^python=//p' <<<"$py_report" | head -n 1)
+  prw_version=$(sed -n 's/^prw_version=//p' <<<"$py_report" | head -n 1)
+  qt_imported=$(sed -n 's/^qt_imported=//p' <<<"$py_report" | head -n 1)
+  cli_file=$(sed -n 's/^cli_file=//p' <<<"$py_report" | head -n 1)
+  [[ "$prw_version" == "0.0.0" ]] || fail "prw version is ${prw_version:-missing}, expected 0.0.0"
+  [[ "$qt_imported" == "no" ]] || fail "Qt is imported by the CLI process"
+  local major minor
+  IFS=. read -r major minor _ <<<"${python_version:-0.0.0}"
+  if ((major < 3 || (major == 3 && minor < 12))); then
+    fail "python ${python_version:-missing} is older than 3.12"
+  fi
+  if ! module_help=$(cd "$repo" && uv run python -m prw.cli --help 2>&1); then
+    fail "python -m prw.cli --help failed"
+    module_help=""
+  fi
+  if ! entry_help=$(cd "$repo" && uv run prw --help 2>&1); then
+    fail "prw --help failed"
+    entry_help=""
+  fi
+  help_lists_commands "$module_help" || fail "python -m prw.cli --help is missing a command"
+  help_lists_commands "$entry_help" || fail "prw --help is missing a command"
+  {
+    printf 'doctor_ok=%s\n' "$ok"
+    printf 'run_id=%s\n' "$run_id"
+    printf 'root=%s\n' "$root"
+    printf 'repo=%s\n' "$repo"
+    printf 'session=%s\n' "$session"
+    printf 'session_alive=%s\n' "$session_alive"
+    printf 'python=%s\n' "${python_version:-missing}"
+    printf 'prw_version=%s\n' "${prw_version:-missing}"
+    printf 'qt_imported=%s\n' "${qt_imported:-missing}"
+    printf 'cli_file=%s\n' "${cli_file:-missing}"
+    printf 'code_version=%s\n' "$code_version"
+    printf 'scratch_benchmarks=%s\n' "$scratch_benchmarks"
+    printf 'scratch_images=%s\n' "$scratch_images"
+    printf 'evidence=%s\n' "$evidence"
+    if [[ -n "$note" ]]; then
+      while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        printf 'failure=%s\n' "$line"
+      done <<<"$note"
+    fi
+  } >"$report"
+  cat "$report"
+  [[ "$ok" == yes ]]
+}
+
+cmd_drive() {
+  local feature="" step=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --feature)
+        feature=$2
+        shift 2
+        ;;
+      --step)
+        step=$2
+        shift 2
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        die "unknown drive flag: $1"
+        ;;
+    esac
+  done
+  [[ -n "$feature" && -n "$step" ]] || die "drive requires --feature and --step"
+  token "$feature"
+  token "$step"
+  [[ $# -gt 0 ]] || die "drive requires a prw command after --"
+  load_root ""
+  [[ -f "$evidence/doctor.txt" ]] || die "run doctor before drive"
+  grep -q '^doctor_ok=yes$' "$evidence/doctor.txt" || die "doctor did not pass for $root"
+  local arg
+  for arg in "$@"; do
+    if path_is_forbidden "$arg"; then
+      die "refusing path outside this run's scratch: $arg"
+    fi
+  done
+  local stepdir="$evidence/$feature/$step"
+  mkdir -p "$stepdir"
+  {
+    printf 'uv run python -m prw.cli'
+    for arg in "$@"; do
+      printf ' %q' "$arg"
+    done
+    printf '\n'
+  } >"$stepdir/command.txt"
+  local runner="$stepdir/run.sh"
+  {
+    printf '%s\n' '#!/usr/bin/env bash'
+    printf '%s\n' 'set -u'
+    printf 'export PATH=%q\n' "$PATH"
+    printf 'cd %q\n' "$repo"
+    printf 'args=(\n'
+    for arg in "$@"; do
+      printf '  %q\n' "$arg"
+    done
+    printf ')\n'
+    printf 'stdout=%q\n' "$stepdir/stdout.txt"
+    printf 'stderr=%q\n' "$stepdir/stderr.txt"
+    printf 'exit_code=%q\n' "$stepdir/exit_code.txt"
+    printf '%s\n' 'echo "+ uv run python -m prw.cli ${args[*]}"'
+    printf '%s\n' 'set +e'
+    printf '%s\n' 'uv run python -m prw.cli "${args[@]}" > "$stdout" 2> "$stderr"'
+    printf '%s\n' 'ec=$?'
+    printf '%s\n' 'set -e'
+    printf '%s\n' 'printf "%s\n" "$ec" > "$exit_code"'
+    printf '%s\n' 'printf "%s\n" "----- stdout -----"'
+    printf '%s\n' 'cat "$stdout"'
+    printf '%s\n' 'printf "%s\n" "----- stderr -----"'
+    printf '%s\n' 'cat "$stderr"'
+    printf '%s\n' 'printf "%s\n" "PRW_VERIFY_DONE exit=$ec"'
+    printf '%s\n' 'sleep infinity'
+  } >"$runner"
+  chmod +x "$runner"
+  local drive_session="prw-verify-${run_id}-${feature}-${step}"
+  printf '%s\n' "$drive_session" >>"$root/sessions.txt"
+  tmux_cmd new-session -d -s "$drive_session" -c "$repo" -- bash "$runner"
+  local _try
+  for _try in $(seq 1 240); do
+    if [[ -f "$stepdir/exit_code.txt" ]]; then
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ ! -f "$stepdir/exit_code.txt" ]]; then
+    die "drive timed out waiting for $feature/$step"
+  fi
+  sleep 0.2
+  tmux_cmd capture-pane -p -t "$drive_session" -S -2000 >"$stepdir/pane.txt"
+  local captured
+  captured=$(<"$stepdir/exit_code.txt")
+  printf 'feature=%s\nstep=%s\nexit_code=%s\nevidence=%s\n' \
+    "$feature" "$step" "$captured" "$stepdir"
+}
+
+cmd_observe() {
+  local feature="" step=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --feature)
+        feature=$2
+        shift 2
+        ;;
+      --step)
+        step=$2
+        shift 2
+        ;;
+      *)
+        die "unknown observe flag: $1"
+        ;;
+    esac
+  done
+  [[ -n "$feature" && -n "$step" ]] || die "observe requires --feature and --step"
+  token "$feature"
+  token "$step"
+  load_root ""
+  local stepdir="$evidence/$feature/$step"
+  [[ -d "$stepdir" ]] || die "missing drive evidence: $stepdir"
+  local report="$stepdir/side_effects.txt"
+  local manifest_json=absent originals=absent
+  if [[ -f "$root/manifest.json" ]] ||
+    find "$scratch" -name manifest.json -print -quit | grep -q .; then
+    manifest_json=present
+  fi
+  if [[ -d "$scratch/originals" || -d "$root/originals" ]]; then
+    originals=present
+  fi
+  {
+    printf 'scratch_benchmarks=%s\n' "$scratch_benchmarks"
+    printf 'scratch_images=%s\n' "$scratch_images"
+    printf 'manifest_json=%s\n' "$manifest_json"
+    printf 'originals=%s\n' "$originals"
+    find "$scratch" -type f | sort | while IFS= read -r file; do
+      rel=${file#"$scratch"/}
+      size=$(wc -c <"$file" | tr -d ' ')
+      digest=$(sha256sum "$file" | awk '{print $1}')
+      tiff=no
+      case "$rel" in
+        *.tif | *.tiff) tiff=yes ;;
+      esac
+      printf 'file %s size=%s sha256=%s tiff=%s\n' "$rel" "$size" "$digest" "$tiff"
+    done
+  } >"$report"
+  cat "$report"
+}
+
+cmd_cleanup() {
+  load_root "${1:-}"
+  local name
+  if [[ -f "$root/sessions.txt" ]]; then
+    while IFS= read -r name; do
+      [[ -n "$name" ]] || continue
+      if tmux_cmd has-session -t "=$name" 2>/dev/null; then
+        tmux_cmd kill-session -t "=$name"
+      fi
+    done <"$root/sessions.txt"
+  fi
+  if [[ -d "$scratch" ]]; then
+    rm -rf "$scratch"
+  fi
+  [[ ! -d "$scratch" ]] || die "scratch survived cleanup: $scratch"
+  [[ -d "$evidence" ]] || die "evidence is missing after cleanup: $evidence"
+  if [[ -f "$LATEST" && "$(<"$LATEST")" == "$root" ]]; then
+    rm -f "$LATEST"
+  fi
+  printf 'evidence_survives=yes\n'
+  printf 'evidence=%s\n' "$evidence"
+  printf 'scratch_removed=yes\n'
+  find "$evidence" -type f | sort | while IFS= read -r file; do
+    printf 'kept %s\n' "${file#"$evidence"/}"
+  done
+}
+
+main() {
+  local root_flag=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --root)
+        root_flag=$2
+        shift 2
+        ;;
+      -h | --help)
+        usage
+        exit 0
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+  local command=${1:-}
+  [[ -n "$command" ]] || {
+    usage >&2
+    exit 2
+  }
+  shift
+  case "$command" in
+    launch)
+      [[ -z "$root_flag" ]] || die "launch creates its own root"
+      cmd_launch
+      ;;
+    doctor)
+      cmd_doctor "$root_flag"
+      ;;
+    drive | observe)
+      if [[ -n "$root_flag" ]]; then
+        export PRW_VERIFY_ROOT=$root_flag
+      fi
+      if [[ "$command" == drive ]]; then
+        cmd_drive "$@"
+      else
+        cmd_observe "$@"
+      fi
+      ;;
+    cleanup)
+      cmd_cleanup "$root_flag"
+      ;;
+    *)
+      usage >&2
+      die "unknown command: $command"
+      ;;
+  esac
+}
+
+main "$@"

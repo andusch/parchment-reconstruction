@@ -1,0 +1,16 @@
+evidence_survives=yes
+evidence=/tmp/prw-verify/20261022T153310Z-67d0/evidence
+scratch_removed=yes
+sessions_killed=prw-verify-20261022T153310Z-67d0 prw-verify-20261022T153310Z-67d0-generate-write-leaf
+kept doctor.txt
+kept generate/write-leaf/checks.txt
+kept generate/write-leaf/command.txt
+kept generate/write-leaf/exit_code.txt
+kept generate/write-leaf/pane.txt
+kept generate/write-leaf/run.sh
+kept generate/write-leaf/side_effects.txt
+kept generate/write-leaf/stderr.txt
+kept generate/write-leaf/stdout.txt
+kept launch.txt
+kept ready.sh
+kept uv-sync.txt

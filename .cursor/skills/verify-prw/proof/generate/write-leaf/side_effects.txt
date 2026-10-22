@@ -1,0 +1,12 @@
+scratch_benchmarks=/tmp/prw-verify/20261022T153310Z-67d0/scratch/benchmarks
+scratch_images=/tmp/prw-verify/20261022T153310Z-67d0/scratch/images
+manifest_json=absent
+originals=absent
+file benchmarks/labels.json size=1997 sha256=5d1f20c73449bca01c262fcf28581e999c47d58018d481d3278f55f411b3bfd6 tiff=no
+file benchmarks/provenance.json size=470 sha256=1607015899275c0dfd5a4678db893b576c0ae1c6eaadebb80d12e2e4e670ab1d tiff=no
+file images/fragment-38d5530f-020f-5e3f-a9a3-a8950db10246.tif size=4588 sha256=9908bdadcfbe1c6df5df71e946d3194849a39ff47a30250de0d01578d57f99d1 tiff=yes
+file images/fragment-7906fc2e-c67d-5a96-aa48-f5da61a00660.tif size=4357 sha256=83a740d2459ccdbe6b337b83a6ccd6d2d71e3e1388ff9a258329c4f3379ab8f4 tiff=yes
+file images/fragment-7ae62e29-127a-5295-8200-d54d2f6e4f30.tif size=4226 sha256=5444360fc005ffc7f8e029cec0147114a0e7d6d145377125e0a684a2e943e3c8 tiff=yes
+file images/fragment-fec28667-49c7-54bf-acab-b171a8f4407b.tif size=4027 sha256=ca36597d464ab1132e0671a75a789fbd1cb46bacfcc372fca032cb6da4c0f699 tiff=yes
+file images/image_manifest.json size=1232 sha256=0cae534211055334c34a5b2febba6eba41a67633462e4cdc93bb1a0456fb9df4 tiff=no
+file images/page.tif size=14122 sha256=381feda0921079e8f759fc1e7a36138bcf5fa3f7a8dde14f539c23325ed23204 tiff=yes

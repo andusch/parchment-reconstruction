@@ -1,0 +1,26 @@
++ uv run python -m prw.cli generate --benchmarks /tmp/prw-verify/20261022T153310
+Z-67d0/scratch/benchmarks --images /tmp/prw-verify/20261022T153310Z-67d0/scratch
+/images --missing-fragment-percentage 0 --edge-erosion 0 --rotation 0.2 --lighti
+ng-variation 0.4 --random-seed 7 --code-version e454a6367eb9
+----- stdout -----
+{"images":[{"byte_length":14122,"content_hash":"sha256:381feda0921079e8f759fc1e7
+a36138bcf5fa3f7a8dde14f539c23325ed23204","name":"page.tif","role":"page"},{"byte
+_length":4027,"content_hash":"sha256:ca36597d464ab1132e0671a75a789fbd1cb46bacfcc
+372fca032cb6da4c0f699","name":"fragment-fec28667-49c7-54bf-acab-b171a8f4407b.tif
+","role":"fragment"},{"byte_length":4226,"content_hash":"sha256:5444360fc005ffc7
+f8e029cec0147114a0e7d6d145377125e0a684a2e943e3c8","name":"fragment-7ae62e29-127a
+-5295-8200-d54d2f6e4f30.tif","role":"fragment"},{"byte_length":4357,"content_has
+h":"sha256:83a740d2459ccdbe6b337b83a6ccd6d2d71e3e1388ff9a258329c4f3379ab8f4","na
+me":"fragment-7906fc2e-c67d-5a96-aa48-f5da61a00660.tif","role":"fragment"},{"byt
+e_length":4588,"content_hash":"sha256:9908bdadcfbe1c6df5df71e946d3194849a39ff47a
+30250de0d01578d57f99d1","name":"fragment-38d5530f-020f-5e3f-a9a3-a8950db10246.ti
+f","role":"fragment"}],"provenance":{"algorithm_name":"synthetic_tear","algorith
+m_version":"1","code_version":"e454a6367eb9","decoder_name":"synthetic_uncompres
+sed_tiff","decoder_version":"1","id":"26a85a5d-03d2-5f51-b5d6-f9558c6a0efc","mod
+el_hash":"absent","parameter_blob":"{\"edge_erosion\":0.0,\"lighting_variation\"
+:0.4,\"missing_fragment_percentage\":0.0,\"rotation\":0.2}","parameter_hash":"sh
+a256:ae0509f6655176c40c4804ea7d3b67c427c6ac2d350b069fea90278b87d5668a","random_s
+eed":7,"source_hashes":[]}}
+----- stderr -----
+PRW_VERIFY_DONE exit=0
+

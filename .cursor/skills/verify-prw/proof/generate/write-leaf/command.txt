@@ -1,0 +1,1 @@
+uv run python -m prw.cli generate --benchmarks /tmp/prw-verify/20261022T153310Z-67d0/scratch/benchmarks --images /tmp/prw-verify/20261022T153310Z-67d0/scratch/images --missing-fragment-percentage 0 --edge-erosion 0 --rotation 0.2 --lighting-variation 0.4 --random-seed 7 --code-version e454a6367eb9
