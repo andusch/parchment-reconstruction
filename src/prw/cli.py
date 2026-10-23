@@ -3,13 +3,15 @@
 The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 ``prw.synthetic_tear``, ``prw.segment``, ``prw.scale``,
 ``prw.outline_agreement``, ``prw.edge_chord``, ``prw.pairwise_join``,
-``prw.join_rank``, and ``prw.join_recall``. Command names and flags are
-unfrozen. They are not a stable interface. The project format is still
-Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not import Qt,
-does not open a network connection, does not start a worker, and does not
-write ``manifest.json`` or ``originals/``. A pool image is one repeated
-flag with a label and an existing path. A missing path is an error that
-lists the fragment names in the sibling ``image_manifest.json``.
+``prw.join_rank``, ``prw.join_recall``, ``prw.assembly_search``,
+``prw.assembly_rank``, ``prw.placement_error``, and
+``prw.assembly_join_presence``. Command names and flags are unfrozen. They
+are not a stable interface. The project format is still Q-ENG-01 in
+``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open
+a network connection, does not start a worker, and does not write
+``manifest.json`` or ``originals/``. A pool image is one repeated flag
+with a label and an existing path. A missing path is an error that lists
+the fragment names in the sibling ``image_manifest.json``.
 """
 
 from __future__ import annotations
@@ -19,13 +21,22 @@ import json
 import sys
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from prw.assembly_join_presence import AssemblyFixture, write_assembly_join_presence
+from prw.assembly_rank import physical_assembly_order
+from prw.assembly_search import (
+    AssemblySearch,
+    AssemblySearchLog,
+    FailedAssemblySearch,
+    FragmentOutline,
+)
 from prw.edge_chord import ChordEdges, EdgeChordLog, FailedEdgeChord
 from prw.fixture_tiff import UnsupportedFixtureLayout
-from prw.frames import CoordinateFrame
+from prw.frames import CoordinateFrame, PageFrame
 from prw.identity import ABSENT, canonical_json, content_id
 from prw.ingest import (
     IntegrityFailure,
@@ -37,14 +48,21 @@ from prw.join_rank import physical_join_order
 from prw.join_recall import write_join_recall
 from prw.joins import JoinHypothesis
 from prw.outline_agreement import write_outline_agreement
-from prw.outlines import FragmentOutlineRevision
+from prw.outlines import Fragment, FragmentOutlineRevision
 from prw.pairwise_join import (
     FailedPairwiseJoin,
     FragmentChords,
     PairwiseJoinLog,
     PairwiseJoins,
 )
-from prw.provenance import ProvenanceEnvelope
+from prw.placement_error import write_placement_error
+from prw.provenance import (
+    AlgorithmRun,
+    AssemblyContent,
+    ProvenanceEnvelope,
+    StatusEvent,
+    StatusStream,
+)
 from prw.scale import CallerScale, ScaledOutline, ScaleLog
 from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
 from prw.synthetic_tear import generate_synthetic_leaf
@@ -67,9 +85,10 @@ def _parser() -> argparse.ArgumentParser:
         description=(
             "Headless calls for ingest, frames, provenance, the synthetic "
             "fixture generator, segmentation, caller-supplied scale, outline "
-            "agreement, chord edges, pairwise joins, and join recall. "
-            "Command names are unfrozen and are not a stable interface. "
-            "The project format is still Q-ENG-01."
+            "agreement, chord edges, pairwise joins, join recall, assembly "
+            "search, assembly rank, placement error, and end-to-end join "
+            "presence. Command names are unfrozen and are not a stable "
+            "interface. The project format is still Q-ENG-01."
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
@@ -157,12 +176,57 @@ def _parser() -> argparse.ArgumentParser:
     recall.add_argument("--benchmarks", type=Path, required=True)
     recall.add_argument("--k", type=int, required=True)
     recall.add_argument("--correspondence", action="append", default=None)
+
+    assemble = commands.add_parser(
+        "assemble",
+        help="Print rigid assembly search. Unfrozen; not a stable interface.",
+    )
+    _add_assembly_arguments(assemble)
+
+    assembly_rank = commands.add_parser(
+        "assembly-rank",
+        help="Print assemblies in physical order. Unfrozen; not a stable interface.",
+    )
+    _add_assembly_arguments(assembly_rank)
+
+    placement = commands.add_parser(
+        "placement-error",
+        help="Write a placement-error report. Unfrozen; not a stable interface.",
+    )
+    _add_assembly_arguments(placement)
+    _add_report_arguments(placement)
+
+    presence = commands.add_parser(
+        "join-presence",
+        help=(
+            "Write an end-to-end join-presence report. "
+            "Unfrozen; not a stable interface."
+        ),
+    )
+    _add_assembly_arguments(presence)
+    _add_report_arguments(presence)
     return parser
 
 
 def _add_scale_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--pixels-per-mm", type=float, default=None)
     parser.add_argument("--uncertainty", type=float, default=None)
+
+
+def _add_assembly_arguments(parser: argparse.ArgumentParser) -> None:
+    _add_pool_arguments(parser)
+    parser.add_argument("--n", type=int, default=None)
+    parser.add_argument("--translation-tolerance-mm", type=float, default=None)
+    parser.add_argument("--rotation-tolerance-radians", type=float, default=None)
+    parser.add_argument("--min-width-mm", type=float, default=None)
+    parser.add_argument("--max-width-mm", type=float, default=None)
+    parser.add_argument("--min-height-mm", type=float, default=None)
+    parser.add_argument("--max-height-mm", type=float, default=None)
+
+
+def _add_report_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--benchmarks", type=Path, required=True)
+    parser.add_argument("--correspondence", action="append", default=None)
 
 
 def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:
@@ -411,6 +475,300 @@ def _cmd_recall(args: argparse.Namespace) -> int:
     )
     _print_record(json.loads(report.read_text(encoding="utf-8")))
     return 0
+
+
+@dataclass(frozen=True, slots=True)
+class _MillimetrePool:
+    """Scaled outlines and the chords used to propose joins."""
+
+    chords: tuple[FragmentChords, ...]
+    outlines: tuple[FragmentOutline, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _AssemblyInputs:
+    """Joins and millimetre outlines for one assembly command.
+
+    ``joins`` are the pairwise rows. They are not BenchmarkLabel rows.
+    """
+
+    joins: PairwiseJoins
+    outlines: tuple[FragmentOutline, ...]
+    chords: tuple[FragmentChords, ...]
+
+
+def _cmd_assemble(args: argparse.Namespace) -> int:
+    prepared = _assembly_search(
+        args, "A BenchmarkLabel join file is not an assembly-search path."
+    )
+    if isinstance(prepared, int):
+        return prepared
+    result = prepared[0]
+    if isinstance(result, FailedAssemblySearch):
+        _print_run_failure("FailedAssemblySearch", result.run.id)
+        return 1
+    _print_assembly_search(result)
+    return 0
+
+
+def _cmd_assembly_rank(args: argparse.Namespace) -> int:
+    prepared = _assembly_search(
+        args, "A BenchmarkLabel join file is not an assembly-rank path."
+    )
+    if isinstance(prepared, int):
+        return prepared
+    result = prepared[0]
+    if isinstance(result, FailedAssemblySearch):
+        _print_run_failure("FailedAssemblySearch", result.run.id)
+        return 1
+    ordered = _ordered_assemblies(result.assemblies, (result.run,), result.proposed)
+    _print_record(
+        {
+            "record": "physical_assembly_order",
+            "assemblies": [_assembly_payload(assembly) for assembly in ordered],
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+    return 0
+
+
+def _ordered_assemblies(
+    hypotheses: Sequence[object],
+    runs: Sequence[AlgorithmRun],
+    events: StatusStream | Sequence[StatusEvent],
+) -> tuple[AssemblyContent, ...]:
+    """Return the physical assembly order.
+
+    A join in ``hypotheses`` is refused. Rank is not stored on the assembly.
+    """
+    return physical_assembly_order(hypotheses, runs, events)
+
+
+def _cmd_placement_error(args: argparse.Namespace) -> int:
+    prepared = _assembly_search(
+        args, "A BenchmarkLabel join file is not a placement-error path."
+    )
+    if isinstance(prepared, int):
+        return prepared
+    completed = _completed_search(prepared)
+    if isinstance(completed, int):
+        return completed
+    result, inputs = completed
+    if not isinstance(args.n, int) or isinstance(args.n, bool):
+        raise ValueError("N is an integer greater than or equal to 1.")
+    report = write_placement_error(
+        args.benchmarks,
+        envelope=result.run.provenance,
+        ranked_assemblies=result.assemblies,
+        poses=result.poses,
+        polygons={item.fragment.id: item.outline.polygon for item in inputs.outlines},
+        n=args.n,
+        correspondence=_correspondence_map(args.correspondence, inputs.chords),
+    )
+    _print_record(json.loads(report.read_text(encoding="utf-8")))
+    return 0
+
+
+def _cmd_join_presence(args: argparse.Namespace) -> int:
+    prepared = _assembly_search(
+        args, "A BenchmarkLabel join file is not a join-presence path."
+    )
+    if isinstance(prepared, int):
+        return prepared
+    completed = _completed_search(prepared)
+    if isinstance(completed, int):
+        return completed
+    result, inputs = completed
+    if not isinstance(args.n, int) or isinstance(args.n, bool):
+        raise ValueError("N is an integer greater than or equal to 1.")
+    report = write_assembly_join_presence(
+        args.benchmarks,
+        envelope=result.run.provenance,
+        fixtures=(
+            AssemblyFixture(
+                label_file=args.benchmarks / "labels.json",
+                assemblies=result.assemblies,
+                joins=inputs.joins.joins,
+                correspondence=_correspondence_map(args.correspondence, inputs.chords),
+            ),
+        ),
+        n=args.n,
+    )
+    _print_record(json.loads(report.read_text(encoding="utf-8")))
+    return 0
+
+
+def _assembly_search(
+    args: argparse.Namespace,
+    refuse_message: str,
+) -> tuple[AssemblySearch | FailedAssemblySearch, _AssemblyInputs | None] | int:
+    """Search assemblies from the image pool.
+
+    A BenchmarkLabel path is refused before the search. Label rows are not
+    passed into ``prw.assembly_search``. A missing page frame, a missing N,
+    or a non-millimetre outline fails the search and emits no placement.
+    """
+    for path, _label in _image_pairs(args.images):
+        _refuse_join_label_path(path, refuse_message)
+    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    page = _page_frame(args)
+    if args.pixels_per_mm is None or page is None:
+        return (_failed_assembly_search(args), None)
+    built = _millimetre_pool(args)
+    if isinstance(built, int):
+        return built
+    proposed = PairwiseJoinLog().propose(
+        built.chords,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+    if isinstance(proposed, FailedPairwiseJoin):
+        _print_run_failure("FailedPairwiseJoin", proposed.run.id)
+        return 1
+    searched = AssemblySearchLog().search(
+        proposed.joins,
+        proposed.transforms,
+        (proposed.run,),
+        proposed.proposed,
+        built.outlines,
+        page[0],
+        page[1],
+        n=args.n,
+        translation_tolerance_mm=args.translation_tolerance_mm,
+        rotation_tolerance_radians=args.rotation_tolerance_radians,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+    return (searched, _AssemblyInputs(proposed, built.outlines, built.chords))
+
+
+def _completed_search(
+    prepared: tuple[AssemblySearch | FailedAssemblySearch, _AssemblyInputs | None],
+) -> tuple[AssemblySearch, _AssemblyInputs] | int:
+    result, inputs = prepared
+    if isinstance(result, FailedAssemblySearch):
+        _print_run_failure("FailedAssemblySearch", result.run.id)
+        return 1
+    if inputs is None:
+        raise ValueError("A completed assembly search cites its outlines.")
+    return (result, inputs)
+
+
+def _failed_assembly_search(args: argparse.Namespace) -> FailedAssemblySearch:
+    result = AssemblySearchLog().search(
+        (),
+        (),
+        (),
+        (),
+        (),
+        None,
+        None,
+        n=args.n,
+        translation_tolerance_mm=args.translation_tolerance_mm,
+        rotation_tolerance_radians=args.rotation_tolerance_radians,
+        code_version=args.code_version,
+        recorded_at=_utc_now(),
+    )
+    if not isinstance(result, FailedAssemblySearch):
+        raise ValueError("A missing page frame emits no placement.")
+    return result
+
+
+def _millimetre_pool(args: argparse.Namespace) -> _MillimetrePool | int:
+    chords: list[FragmentChords] = []
+    outlines: list[FragmentOutline] = []
+    for path, label in _image_pairs(args.images):
+        presented = _presented_bytes(path)
+        segmented = _segment_presented(args, presented, label)
+        if not isinstance(segmented, SegmentedOutline):
+            _print_failure(segmented)
+            return 1
+        scaled = _apply_scale(segmented, args)
+        traced = _trace(scaled.outline, scaled.frame, scaled.run.provenance, args)
+        if isinstance(traced, FailedEdgeChord):
+            _print_run_failure("FailedEdgeChord", traced.run.id)
+            return 1
+        fragment = segmented.fragment.confirm()
+        chords.append(
+            FragmentChords(
+                fragment=fragment,
+                frame=traced.frame,
+                edges=traced.edges,
+                envelope=traced.run.provenance,
+                observation=scaled.observation,
+                transform=scaled.transform,
+            )
+        )
+        outlines.append(_fragment_outline(fragment, scaled))
+    return _MillimetrePool(chords=tuple(chords), outlines=tuple(outlines))
+
+
+def _fragment_outline(fragment: Fragment, scaled: ScaledOutline) -> FragmentOutline:
+    return FragmentOutline(
+        fragment=fragment,
+        frame=scaled.frame,
+        outline=scaled.outline,
+    )
+
+
+def _page_frame(args: argparse.Namespace) -> tuple[PageFrame, CoordinateFrame] | None:
+    bounds = (
+        args.min_width_mm,
+        args.max_width_mm,
+        args.min_height_mm,
+        args.max_height_mm,
+    )
+    if any(item is None for item in bounds):
+        return None
+    frame = CoordinateFrame.page_global_mm(
+        owner_id=content_id({"kind": "cli-page", "bounds": bounds})
+    )
+    return (
+        PageFrame.create(
+            frame,
+            min_width_mm=bounds[0],
+            max_width_mm=bounds[1],
+            min_height_mm=bounds[2],
+            max_height_mm=bounds[3],
+        ),
+        frame,
+    )
+
+
+def _print_assembly_search(result: AssemblySearch) -> None:
+    _print_record(
+        {
+            "record": "AssemblySearch",
+            "assemblies": [
+                _assembly_payload(assembly) for assembly in result.assemblies
+            ],
+            "screening": [
+                {
+                    "hypothesis_id": event.hypothesis_id,
+                    "gate": event.gate,
+                    "outcome": event.outcome,
+                }
+                for event in result.screening
+            ],
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+
+
+def _assembly_payload(assembly: AssemblyContent) -> dict[str, Any]:
+    score = next(
+        item
+        for item in assembly.scores
+        if item.channel == "physical" and item.hypothesis_type == "assembly"
+    )
+    return {
+        "id": assembly.id,
+        "epistemic_class": assembly.epistemic_class,
+        "join_ids": list(assembly.join_ids),
+        "placements": [item.fragment_id for item in assembly.placements],
+        "score": score.value,
+        "channel": score.channel,
+    }
 
 
 def _cmd_agree(args: argparse.Namespace) -> int:
@@ -803,6 +1161,10 @@ _COMMANDS = {
     "edge": _cmd_edge,
     "rank": _cmd_rank,
     "recall": _cmd_recall,
+    "assemble": _cmd_assemble,
+    "assembly-rank": _cmd_assembly_rank,
+    "placement-error": _cmd_placement_error,
+    "join-presence": _cmd_join_presence,
 }
 
 

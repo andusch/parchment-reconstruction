@@ -7,11 +7,13 @@ import io
 import json
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
 import pytest
 
 from prw.identity import hash_value
+from prw.joins import JoinHypothesis
 from prw.outline_agreement import polygon_iou
 from prw.synthetic_tear import (
     SyntheticLeaf,
@@ -35,6 +37,11 @@ def test_cli_imports_no_qt() -> None:
     assert callable(cli.main)
     roots = {name.split(".", maxsplit=1)[0].lower() for name in sys.modules}
     assert roots.isdisjoint({"pyqt5", "pyqt6", "pyside2", "pyside6", "pyqt"})
+    source = Path(inspect.getfile(cli)).read_text(encoding="utf-8")
+    assert "PyQt" not in source
+    assert "PySide" not in source
+    assert "threading" not in source
+    assert "multiprocessing" not in source
 
 
 def test_verify_prints_a_hash_or_an_integrity_failure(tmp_path: Path) -> None:
@@ -879,3 +886,264 @@ def test_recall_writes_only_a_new_report(tmp_path: Path) -> None:
     assert refused.stdout == ""
     assert (benchmarks / "labels.json").read_bytes() == labels
     assert _files(benchmarks) - before == {report_path}
+
+
+def _assembly_args(fragments: list[Path], *extra: str) -> list[str]:
+    return [
+        "--image",
+        "piece-a",
+        str(fragments[0]),
+        "--image",
+        "piece-b",
+        str(fragments[2]),
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+        "--minimum-edge-length-mm",
+        "6",
+        "--n",
+        "2",
+        "--translation-tolerance-mm",
+        "1",
+        "--rotation-tolerance-radians",
+        "1",
+        "--min-width-mm",
+        "0",
+        "--max-width-mm",
+        "1000",
+        "--min-height-mm",
+        "0",
+        "--max-height-mm",
+        "1000",
+        *extra,
+    ]
+
+
+def _without(args: list[str], flag: str) -> list[str]:
+    kept: list[str] = []
+    skip = False
+    for item in args:
+        if skip:
+            skip = False
+            continue
+        if item == flag:
+            skip = True
+            continue
+        kept.append(item)
+    return kept
+
+
+def test_assemble_prints_search_or_a_failure_without_a_placement(
+    tmp_path: Path,
+) -> None:
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    assert len(fragments) >= 3
+    labels = (benchmarks / "labels.json").read_bytes()
+    searched = _run("assemble", *_assembly_args(fragments))
+    assert searched.returncode == 0, searched.stderr
+    printed = json.loads(searched.stdout)
+    assert printed["record"] == "AssemblySearch"
+    assert isinstance(printed["assemblies"], list)
+    assert printed["screening"]
+    assert {event["gate"] for event in printed["screening"]} == {"physical"}
+    assert printed["envelope"]["algorithm_name"] == "rigid_assembly_search"
+    assert "correct_join" not in searched.stdout
+    assert "truth" not in searched.stdout
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    missing_page = _run(
+        "assemble",
+        *_without(
+            _without(
+                _without(
+                    _without(_assembly_args(fragments), "--min-width-mm"),
+                    "--max-width-mm",
+                ),
+                "--min-height-mm",
+            ),
+            "--max-height-mm",
+        ),
+    )
+    assert missing_page.returncode == 1, missing_page.stderr
+    failure = json.loads(missing_page.stdout)
+    assert failure["record"] == "FailedAssemblySearch"
+    assert failure["status"] == "failed"
+    assert "placement" not in missing_page.stdout
+    assert "assemblies" not in failure
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    missing_n = _run("assemble", *_without(_assembly_args(fragments), "--n"))
+    assert missing_n.returncode == 1, missing_n.stderr
+    assert json.loads(missing_n.stdout)["record"] == "FailedAssemblySearch"
+    assert "placement" not in missing_n.stdout
+
+    pixels = _run(
+        "assemble",
+        *_without(
+            _without(_assembly_args(fragments), "--pixels-per-mm"),
+            "--uncertainty",
+        ),
+    )
+    assert pixels.returncode == 1, pixels.stderr
+    assert json.loads(pixels.stdout)["record"] == "FailedAssemblySearch"
+    assert "placement" not in pixels.stdout
+
+    refused = _run(
+        "assemble",
+        "--image",
+        "piece-a",
+        str(benchmarks / "labels.json"),
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+        "--n",
+        "1",
+        "--translation-tolerance-mm",
+        "1",
+        "--rotation-tolerance-radians",
+        "1",
+        "--min-width-mm",
+        "0",
+        "--max-width-mm",
+        "1000",
+        "--min-height-mm",
+        "0",
+        "--max-height-mm",
+        "1000",
+    )
+    assert refused.returncode == 2
+    assert "BenchmarkLabel join file" in refused.stderr
+    assert refused.stdout == ""
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+
+def test_assembly_rank_prints_physical_order_and_refuses_a_join(
+    tmp_path: Path,
+) -> None:
+    import prw.cli as cli
+    from prw.provenance import Score
+
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    labels = (benchmarks / "labels.json").read_bytes()
+    ranked = _run("assembly-rank", *_assembly_args(fragments))
+    assert ranked.returncode == 0, ranked.stderr
+    printed = json.loads(ranked.stdout)
+    assert printed["record"] == "physical_assembly_order"
+    assert isinstance(printed["assemblies"], list)
+    scores = [item["score"] for item in printed["assemblies"]]
+    assert scores == sorted(scores, reverse=True)
+    assert {item["epistemic_class"] for item in printed["assemblies"]} <= {"hypothesis"}
+    assert printed["envelope"]["algorithm_name"] == "rigid_assembly_search"
+    assert "correct_join" not in ranked.stdout
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    refused = _run(
+        "assembly-rank",
+        "--image",
+        "piece-a",
+        str(benchmarks / "labels.json"),
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--pixels-per-mm",
+        "10",
+        "--uncertainty",
+        "0.1",
+        "--n",
+        "1",
+        "--translation-tolerance-mm",
+        "1",
+        "--rotation-tolerance-radians",
+        "1",
+        "--min-width-mm",
+        "0",
+        "--max-width-mm",
+        "1000",
+        "--min-height-mm",
+        "0",
+        "--max-height-mm",
+        "1000",
+    )
+    assert refused.returncode == 2
+    assert "BenchmarkLabel join file" in refused.stderr
+    assert "assembly-rank" in refused.stderr
+    assert refused.stdout == ""
+    assert (benchmarks / "labels.json").read_bytes() == labels
+
+    run_id = uuid.uuid4()
+    provenance_id = uuid.uuid4()
+    join = JoinHypothesis.create(
+        run_id=run_id,
+        fragment_a_id=uuid.uuid4(),
+        edge_a_id=uuid.uuid4(),
+        fragment_b_id=uuid.uuid4(),
+        edge_b_id=uuid.uuid4(),
+        transform_id=uuid.uuid4(),
+        scores=(
+            Score(
+                value=1.0,
+                run_id=run_id,
+                channel="physical",
+                hypothesis_type="join",
+            ),
+        ),
+        provenance_id=provenance_id,
+    )
+    with pytest.raises(ValueError, match="join"):
+        cli._ordered_assemblies((join,), (), ())
+
+
+def test_assembly_reports_write_only_a_new_file(tmp_path: Path) -> None:
+    benchmarks, _fragment, _payload, _leaf = _synthetic_leaf(tmp_path)
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    labels = (benchmarks / "labels.json").read_bytes()
+    provenance = (benchmarks / "provenance.json").read_bytes()
+    before = _files(benchmarks)
+    image_bytes = _files(images)
+    args = _assembly_args(fragments, "--benchmarks", str(benchmarks))
+
+    placed = _run("placement-error", *args)
+    assert placed.returncode == 0, placed.stderr
+    placement_report = json.loads(placed.stdout)
+    assert placement_report["metric"] == "placement_error"
+    assert placement_report["n"] == 2
+    placement_path = benchmarks / "placement_error" / "placement-error-0001.json"
+    assert placement_path.is_file()
+    assert _files(benchmarks) - before == {placement_path}
+    assert (benchmarks / "labels.json").read_bytes() == labels
+    assert (benchmarks / "provenance.json").read_bytes() == provenance
+    assert _files(images) == image_bytes
+    assert "correct_join" not in placed.stdout
+
+    present = _run("join-presence", *args)
+    assert present.returncode == 0, present.stderr
+    presence_report = json.loads(present.stdout)
+    assert presence_report["metric"] == "assembly_join_presence"
+    assert presence_report["n"] == 2
+    presence_path = (
+        benchmarks / "assembly_join_presence" / "assembly-join-presence-0001.json"
+    )
+    assert presence_path.is_file()
+    assert _files(benchmarks) - before == {placement_path, presence_path}
+    assert (benchmarks / "labels.json").read_bytes() == labels
+    assert (benchmarks / "provenance.json").read_bytes() == provenance
+    assert _files(images) == image_bytes
+    assert "correct_join" not in present.stdout
+    assert not (tmp_path / "originals").exists()
+    assert not (benchmarks / "manifest.json").exists()

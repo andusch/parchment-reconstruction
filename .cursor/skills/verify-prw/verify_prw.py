@@ -33,9 +33,13 @@ ARTIFACTS = REPO_ROOT / ".cursor" / "skills" / "verify-prw" / "artifacts"
 EXPECTED_VERSION = "0.0.0"
 EXPECTED_COMMANDS = (
     "agree",
+    "assemble",
+    "assembly-rank",
     "edge",
     "frame",
     "generate",
+    "join-presence",
+    "placement-error",
     "provenance",
     "rank",
     "recall",

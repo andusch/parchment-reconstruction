@@ -9,7 +9,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Require the line `prw-verify ready <run-id>` before exporting variables or driving a feature.
 - The instance is `$TMPDIR/prw-verify/<run-id>/`. It is outside the checkout. Its seed is one synthetic leaf: missing-fragment percentage `0`, edge erosion `0`, rotation `0`, lighting variation `0`, random seed `3`, and `code-version` equal to `git rev-parse HEAD` at launch.
 - Export doctor fields with `eval "$(uv run python .cursor/skills/verify-prw/verify_prw.py exports --run RUN_ID)"`.
-- Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,edge,frame,generate,provenance,rank,recall,segment,verify`.
+- Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,segment,verify`.
 - Drive only the instance this launch created. A second run id is a second instance. The same run id refuses a concurrent drive.
 - There is no Qt shell, port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
 - `frame`, `agree`, `edge`, and `recall` are implemented commands and have no feature file. Do not report them as verified.
