@@ -26,3 +26,6 @@ exports/
 
 # Agent debug logs are not tracked.
 .cursor/**/*.log
+
+# Verification transcripts stay on the machine. Cleanup does not delete them.
+.cursor/skills/verify-prw/artifacts/

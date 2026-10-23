@@ -13,7 +13,7 @@ uv run pytest -m "not slow"
 
 ## Headless CLI
 
-`python -m prw.cli` calls ingest (`prw.ingest`), coordinate frames (`prw.frames`), provenance envelopes (`prw.provenance`), the synthetic fixture generator (`prw.synthetic_tear`), segmentation (`prw.segment`), caller-supplied scale (`prw.scale`), outline agreement (`prw.outline_agreement`), chord edges (`prw.edge_chord`), pairwise joins (`prw.pairwise_join`, ordered by `prw.join_rank`), and join recall (`prw.join_recall`). It does not import Qt. Command names and flags are unfrozen and are not a stable interface. The project format is still [Q-ENG-01](docs/OPEN_QUESTIONS.md#q-eng-01).
+`python -m prw.cli` calls ingest (`prw.ingest`), coordinate frames (`prw.frames`), provenance envelopes (`prw.provenance`), the synthetic fixture generator (`prw.synthetic_tear`), segmentation (`prw.segment`), caller-supplied scale (`prw.scale`), outline agreement (`prw.outline_agreement`), chord edges (`prw.edge_chord`), pairwise joins (`prw.pairwise_join`, ordered by `prw.join_rank`), join recall (`prw.join_recall`), assembly search (`prw.assembly_search`), assembly rank (`prw.assembly_rank`), placement error (`prw.placement_error`), and end-to-end join presence (`prw.assembly_join_presence`). It does not import Qt. Command names and flags are unfrozen and are not a stable interface. The project format is still [Q-ENG-01](docs/OPEN_QUESTIONS.md#q-eng-01).
 
 Processing stays on the local machine. Original source images are immutable and checksum-verified. Real scans never enter Git. See [Security and privacy](docs/SECURITY_AND_PRIVACY.md) and [AGENTS.md](AGENTS.md).
 

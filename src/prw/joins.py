@@ -149,12 +149,14 @@ class EdgeArc:
 
 @dataclass(frozen=True, slots=True)
 class RigidTransform:
-    """A join pose: rotation and translation between two fragment frames.
+    """Rotation and translation. There is no scale field.
 
-    See ``RigidTransform`` in ``docs/DATA_MODEL.md``. Both frames are
-    ``fragment_local_mm``. Uniform scale lives on ``CalibrationTransform``.
-    The id is a UUIDv5 over the canonical content of this record. The row
-    has no status column.
+    See ``RigidTransform`` in ``docs/DATA_MODEL.md``. ``create`` is the
+    join-pose rule: both frames are ``fragment_local_mm``. A placement
+    into ``page_global_mm`` is ``placement_pose`` in ``prw.assemblies``.
+    Uniform scale lives on ``CalibrationTransform``. The id is a UUIDv5
+    over the canonical content of this record. The epistemic class is
+    ``hypothesis``. The row has no status column.
     """
 
     from_frame_id: uuid.UUID

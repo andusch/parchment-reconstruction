@@ -72,6 +72,8 @@ Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02
 
 **Blocked by.** [Q-SCI-02](ALGORITHM.md#q-sci-02), [Q-SCI-03](ALGORITHM.md#q-sci-03), and [Q-SCI-08](ALGORITHM.md#q-sci-08) for any scientific claim beyond the synthetic fixture. [Q-SCI-01](ALGORITHM.md#q-sci-01) and [Q-SCI-20](ALGORITHM.md#q-sci-20) block claims outside the rigid-leaf proposal. [Q-PRD-03](PRD.md#q-prd-03) blocks face constraints.
 
+Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) screening events, [P4-03](../tasks/P4-03.md) assembly rank, [P4-04](../tasks/P4-04.md) rigid search, [P4-05](../tasks/P4-05.md) placement error, [P4-06](../tasks/P4-06.md) end-to-end join presence, and [P4-07](../tasks/P4-07.md) headless CLI.
+
 ## P5
 
 **Goal.** Run local Ancient Greek HTR on line images and store `ocr_inferred` graphemes.
