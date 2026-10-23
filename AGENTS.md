@@ -69,4 +69,4 @@ the gitignore pattern `.cursor/**/*.log`.
 | Rule | Enforcer |
 | --- | --- |
 | A pool image is one flag and one existing path. | CLI parser test. |
-| `segment`, `edge_chord`, `pairwise_join`, `join_rank`, `assembly_rank`, and `scale` do not import the benchmark generator or the recall writers. | Import-graph test on those modules (`tests/test_solver_imports.py`). |
+| `segment`, `edge_chord`, `pairwise_join`, `join_rank`, `assembly_rank`, `assembly_search`, and `scale` do not import the benchmark generator or the recall writers. | Import-graph test on those modules (`tests/test_solver_imports.py`). |

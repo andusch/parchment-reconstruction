@@ -62,6 +62,8 @@ Joins in this contract are pairwise. Three fragments meeting at a point are [Q-S
 - **Outputs.** Up to N `AssemblyHypothesis` rows. Placements are rigid transforms into the project's one `page_global_mm` frame. Each assembly records `join_ids` and `unplaced_fragment_ids`. Fragments do not overlap. Scores include the `physical` channel and its `score_context`. N is a recorded parameter. A rigid penalty against the page frame's dimension ranges is a known limitation.
 - **Failure.** When the search finds no non-overlapping placement, the run completes with an empty hypothesis list and an explicit empty result. It does not fabricate a placement.
 
+The implemented algorithm `rigid_assembly_search` version `1` scores each kept assembly by `join_score_sum_minus_range_penalty`; the range penalty is a known limitation of the rigid model, and the score does not recover a historical page size.
+
 Page size is [Q-SCI-02](#q-sci-02). Gaps, shrinkage, and cockling are [Q-SCI-03](#q-sci-03). Distinctness inside top-N is [Q-SCI-08](#q-sci-08). Until Q-SCI-08 closes, the stage does not drop assemblies as near-duplicates. Top-N means the N highest `physical` scores among assemblies. It is not an order mixed with joins or readings. Equal scores break ties by content-derived id, ascending.
 
 ### 7. Detect text lines
