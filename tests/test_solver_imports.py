@@ -1,6 +1,7 @@
 """Import graph of the solvers, not a source-text ban.
 
-``segment``, ``edge_chord``, ``pairwise_join``, ``join_rank``, and ``scale``
+``segment``, ``edge_chord``, ``pairwise_join``, ``join_rank``,
+``assembly_rank``, and ``scale``
 must not reach the benchmark generator or the recall writers. The walk
 follows import opcodes, including an import nested in a function and an
 import that exists only in a helper those modules load. Renaming a string
@@ -18,6 +19,7 @@ _SOLVERS = (
     "prw.edge_chord",
     "prw.pairwise_join",
     "prw.join_rank",
+    "prw.assembly_rank",
     "prw.scale",
 )
 _BANNED = (
