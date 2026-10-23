@@ -5,8 +5,8 @@ Headless use cases live in ``prw.ingest``, ``prw.frames``, ``prw.outlines``,
 ``prw.edge_chord``, ``prw.pairwise_join``, ``prw.join_rank``,
 ``prw.assembly_rank``, ``prw.assembly_search``, ``prw.synthetic_tear``,
 ``prw.fixture_tiff``,
-``prw.segment``, ``prw.scale``, ``prw.outline_agreement``, and
-``prw.join_recall``.
+``prw.segment``, ``prw.scale``, ``prw.outline_agreement``,
+``prw.join_recall``, and ``prw.placement_error``.
 ``python -m prw.cli`` calls ingest, frames, provenance, the synthetic fixture
 generator, segmentation, caller-supplied scale, outline agreement, chord
 edges, pairwise joins, and join recall.
