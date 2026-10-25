@@ -12,7 +12,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,segment,verify`.
 - Drive only the instance this launch created. A second run id is a second instance. The same run id refuses a concurrent drive.
 - There is no Qt shell, port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
-- `frame`, `agree`, `edge`, and `recall` are implemented commands and have no feature file. Do not report them as verified.
+- `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are implemented commands and have no feature file. Do not report them as verified.
 
 ## Driving conventions
 

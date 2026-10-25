@@ -7,7 +7,7 @@ description: Drive the parchment-workbench headless CLI (prw) from a disposable 
 
 The user-facing surface that exists is the headless CLI. `prw` and `python -m prw.cli` both call `prw.cli:main`. The Qt shell in ADR-0005 is not in the package: there is no window, URL, or port. Do not start a GUI, and do not report a library call or a pytest as this proof.
 
-Command names are unfrozen. Drive the commands below as they are. `frame`, `agree`, `edge`, and `recall` are real commands and have no feature file. A run that does not drive them has not verified them.
+Command names are unfrozen. Drive the commands below as they are. `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are real commands and have no feature file. A run that does not drive them has not verified them.
 
 Run every helper command below from the checkout root, so `uv run` selects this project.
 
