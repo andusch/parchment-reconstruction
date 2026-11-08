@@ -204,11 +204,12 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-15
 
+- **Status.** Partially answered on 8 November 2026 for one candidate set. See [pilot-public-corpus.md](pilot-public-corpus.md). The question stays open for every other corpus and for any accuracy claim on real manuscripts.
 - **Owning document.** [EVALUATION.md](EVALUATION.md#q-sci-15)
 - **Question.** Which evaluation corpora are permitted, and under what license?
 - **Why it matters.** Real manuscript images are culturally sensitive and often unpublished or licensed. Synthetic tears cannot stand in for them.
 - **Options.** Synthetic tears only, including in the repository; published images stored outside Git under a named license and cited by hash; no real-image claims until a separate license review.
-- **Blocks.** Any accuracy claim on real manuscripts. In-repo benchmark material stays synthetic.
+- **Blocks.** Any accuracy claim on real manuscripts. In-repo benchmark material stays synthetic. The partial answer covers local storage and checksums for the named sources only.
 
 ### Q-SCI-16
 
