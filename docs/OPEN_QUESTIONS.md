@@ -204,7 +204,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-15
 
-- **Status.** Partially answered on 8 November 2026 for one candidate set. See [pilot-public-corpus.md](pilot-public-corpus.md). The question stays open for every other corpus and for any accuracy claim on real manuscripts.
+- **Status.** Partially answered on 8 November 2026 for one candidate set. The license review is [pilot-public-corpus.md](pilot-public-corpus.md). The operator steps for a local file, a checksum, and a scale note are [pilot-import-path.md](pilot-import-path.md). The question stays open for every other corpus and for any accuracy claim on real manuscripts.
 - **Owning document.** [EVALUATION.md](EVALUATION.md#q-sci-15)
 - **Question.** Which evaluation corpora are permitted, and under what license?
 - **Why it matters.** Real manuscript images are culturally sensitive and often unpublished or licensed. Synthetic tears cannot stand in for them.
@@ -316,7 +316,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Which TIFF and image libraries are allowed, including license?
 - **Why it matters.** Source images are lossless TIFF. Reading them without rewriting bytes is an ingest requirement.
 - **Options.** The Python standard library where it is sufficient; a documented TIFF library chosen with its license at implementation time.
-- **Blocks.** P1 image ingest. P0 does not select a library.
+- **Blocks.** P1 image ingest. P0 does not select a library. The commands this checkout already runs, and the layouts they still refuse, are listed in [pilot-import-path.md](pilot-import-path.md). That note does not close this question.
 
 ### Q-ENG-06
 
