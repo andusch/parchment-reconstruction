@@ -12,7 +12,7 @@ This document states how a later phase may claim that an algorithm change is an 
 - Ground truth is a `BenchmarkLabel` record. It is frozen before scoring.
 - Ground truth is not edited to make a check pass.
 - The `BenchmarkLabel` store is a separate SQLite or JSON store under `benchmarks/`. It is never written into the project evidence database. It is the only place a ground-truth label is allowed. Solver code paths never read it. Agent rule 13 names this store.
-- Real manuscript images stay outside Git. In-repo evaluation material is synthetic. See [Q-SCI-15](#q-sci-15).
+- Real manuscript images stay outside Git. In-repo evaluation material is synthetic. See [Q-SCI-15](#q-sci-15). One public-corpus candidate set is recorded in [pilot-public-corpus.md](pilot-public-corpus.md). That note does not lift the block on accuracy claims.
 - Synthetic tears measure geometry under the generator's cuts. They do not measure ink loss, script, or parchment warp.
 - A scholar's acceptance of rank 1 is a decision record. It is not accuracy.
 - Every algorithm change publishes a comparison against the previous benchmark record on the same frozen fixture.
@@ -134,6 +134,7 @@ Which evaluation corpora are permitted, and under what license?
 Real manuscript images are culturally sensitive and often unpublished or licensed. Synthetic tears cannot stand in for them.
 
 - Options: synthetic tears only, including in the repository; published images stored outside Git under a named license and cited by hash; no real-image claims until a separate license review.
+- Partial answer: [pilot-public-corpus.md](pilot-public-corpus.md) applies the second option to three named sources, for local storage and checksums. The question stays open for every other corpus.
 - Blocks: any accuracy claim on real manuscripts. In-repo benchmark material stays synthetic.
 
 ### Q-SCI-16
