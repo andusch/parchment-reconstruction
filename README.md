@@ -19,6 +19,10 @@ Processing stays on the local machine. Original source images are immutable and 
 
 Terms used across these documents are defined once, in the [data model glossary](docs/DATA_MODEL.md#glossary).
 
+## Using the current build
+
+The commands you can run today are the headless `prw` console. [Using the workbench](docs/USAGE.md) walks them on a synthetic leaf: checksums, outlines, ranked joins, and assembly reports. Command names and flags are unfrozen. This build has no window.
+
 ## Reading order
 
 1. [Product requirements](docs/PRD.md)
