@@ -46,3 +46,4 @@ Agent rules that are not given their own ADR remain in force from [AGENTS.md](..
 | [0011](0011-frame-conventions.md) | Frame conventions | Accepted |
 | [0012](0012-export-types.md) | Export types | Accepted |
 | [0013](0013-human-outline-correction.md) | Human outline correction | Accepted |
+| [0014](0014-stdlib-lossless-tiff.md) | Standard-library lossless TIFF | Accepted |

@@ -35,7 +35,6 @@ from prw.assembly_search import (
     FragmentOutline,
 )
 from prw.edge_chord import ChordEdges, EdgeChordLog, FailedEdgeChord
-from prw.fixture_tiff import UnsupportedFixtureLayout
 from prw.frames import CoordinateFrame, PageFrame
 from prw.identity import ABSENT, canonical_json, content_id
 from prw.ingest import (
@@ -47,6 +46,7 @@ from prw.ingest import (
 from prw.join_rank import physical_join_order
 from prw.join_recall import write_join_recall
 from prw.joins import JoinHypothesis
+from prw.lossless_tiff import TiffDecodeFailure
 from prw.outline_agreement import write_outline_agreement
 from prw.outlines import Fragment, FragmentOutlineRevision
 from prw.pairwise_join import (
@@ -1032,8 +1032,8 @@ def _print_failure(result: object) -> None:
             }
         )
         return
-    if isinstance(result, UnsupportedFixtureLayout):
-        _print_record({"record": "UnsupportedFixtureLayout", "kind": result.kind})
+    if isinstance(result, TiffDecodeFailure):
+        _print_record({"record": "TiffDecodeFailure", "kind": result.kind})
         return
     if isinstance(result, FailedSegmentation):
         _print_record(

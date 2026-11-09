@@ -11,7 +11,7 @@ The workbench is a local desktop application. Scholars import scans, inspect ran
 
 ## Non-goals
 
-P0 does not choose a persistence engine, an HTR runtime, a geometry library, or an image library. Those choices are [Q-ENG-01](#q-eng-01) and [Q-ENG-03](#q-eng-03) through [Q-ENG-05](#q-eng-05). Packaging is [Q-ENG-02](#q-eng-02), closed by [P1-01](../tasks/P1-01.md). The default process has no network client. See [ADR-0001](adr/0001-local-only-processing.md).
+P0 does not choose a persistence engine, an HTR runtime, or a geometry library. Those choices are [Q-ENG-01](#q-eng-01), [Q-ENG-03](#q-eng-03), and [Q-ENG-04](#q-eng-04). The TIFF reader is [Q-ENG-05](#q-eng-05), closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md). Packaging is [Q-ENG-02](#q-eng-02), closed by [P1-01](../tasks/P1-01.md). The default process has no network client. See [ADR-0001](adr/0001-local-only-processing.md).
 
 ## Layering
 
@@ -89,7 +89,7 @@ The Qt UI thread paints, routes input, and displays progress. Detection, join se
 
 ## Dependency and license gate
 
-A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. Image IO, geometry, and HTR runtimes are inside [Q-ENG-03](#q-eng-03), [Q-ENG-04](#q-eng-04), and [Q-ENG-05](#q-eng-05). P0 adds no dependencies.
+A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. Geometry and HTR runtimes are inside [Q-ENG-03](#q-eng-03) and [Q-ENG-04](#q-eng-04). TIFF reading uses the Python standard library, as closed by [Q-ENG-05](#q-eng-05). P0 adds no dependencies.
 
 ## Error policy
 
@@ -133,7 +133,7 @@ What is the minimum Python version and the packaging layout?
 
 Closed by [P1-01](../tasks/P1-01.md). No ADR: the question does not touch evidence semantics, project format, a public API, or privacy policy. Minimum Python is 3.12. The layout is `src/`. The distribution name is `parchment-workbench`. The import package is `prw`.
 
-- Blocks: nothing further for packaging. Image ingest remains blocked by [Q-ENG-05](#q-eng-05). A project format remains blocked by [Q-ENG-01](#q-eng-01).
+- Blocks: nothing further for packaging. A project format remains blocked by [Q-ENG-01](#q-eng-01). TIFF reading is [Q-ENG-05](#q-eng-05), closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md).
 
 ### Q-ENG-03
 
@@ -157,10 +157,9 @@ Join and assembly geometry need robust polygons. A library adds a license obliga
 
 Which TIFF and image libraries are allowed, including license?
 
-Source images are lossless TIFF. Reading them without rewriting bytes is an ingest requirement.
+Closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md) and [PILOT-03](../tasks/PILOT-03.md). No new runtime dependency. Classic lossless TIFF is read with the standard library. The synthetic fixture layout keeps decoder `synthetic_uncompressed_tiff` version `1`. Other accepted masters use `lossless_tiff` version `1`.
 
-- Options: the Python standard library where it is sufficient; a documented TIFF library chosen with its license at implementation time.
-- Blocks: P1 image ingest. P0 does not select a library. The commands this checkout already runs, and the layouts they still refuse, are listed in [pilot-import-path.md](pilot-import-path.md). That note does not close this question.
+- Blocks: nothing further for the TIFF library. Layouts the pixel commands still refuse are listed in that ADR and in [pilot-import-path.md](pilot-import-path.md). A project format remains [Q-ENG-01](#q-eng-01).
 
 ### Q-ENG-06
 

@@ -19,8 +19,9 @@ Fragment ``i`` of ``n`` emitted pieces uses
 
 and the stored sample is ``round(128 * gain)`` clamped to 0..255.
 
-Uncompressed little-endian TIFF layout, written with the standard library
-and not an approved decoder for arbitrary scans (``Q-ENG-05`` stays open):
+Uncompressed little-endian TIFF layout, written with the standard library.
+Other lossless masters are read by ``prw.lossless_tiff``
+(``docs/adr/0014-stdlib-lossless-tiff.md``). This writer's layout is:
 
 - Magic ``II*\\x00``, then the first IFD offset ``8`` as a little-endian
   unsigned long.

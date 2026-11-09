@@ -3,17 +3,18 @@
 ``SourceImage`` and ``IntegrityFailure`` are defined in
 ``docs/DATA_MODEL.md#sourceimage``. The product rule is a lossless TIFF.
 Current ingest accepts the 4-byte magic ``II*\\x00`` or ``MM\\x00*`` and
-records media type ``image/tiff``. Any other prefix is rejected. The fixture
-reader enforces the uncompressed grayscale layout. A general lossless-TIFF
-decoder stays behind Q-ENG-05. A checksum mismatch is an
+records media type ``image/tiff``. Any other prefix is rejected, including
+BigTIFF. This function does not decode pixels. Lossless compression is
+enforced by ``prw.lossless_tiff`` when a pixel command reads the file.
+A checksum mismatch is an
 ``IntegrityFailure``: a protocol event with a random UUID, the presented
 hash, the expected hash, and a UTC timestamp. It is not observed evidence,
 it is not a hypothesis, and it has no epistemic class. The presented bytes
 are not modified.
 
 This module does not parse an IFD, read header PPI, create a calibration,
-or write a project directory. Decoder name and version wait until a TIFF
-decoder is approved.
+or write a project directory. Decoder name and version are recorded by
+the pixel command that reads the samples.
 """
 
 from __future__ import annotations

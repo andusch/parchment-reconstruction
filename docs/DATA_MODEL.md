@@ -107,14 +107,14 @@ No entity in the project evidence database defines a field named `truth`, `corre
 
 ### SourceImage
 
-Observed evidence. Pixels are immutable. The product rule is a lossless TIFF. Current ingest accepts the 4-byte TIFF magic `II*\x00` or `MM\x00*` and records media type `image/tiff`. Any other prefix is rejected. The fixture reader enforces the uncompressed grayscale layout used by the synthetic writer. A general lossless-TIFF decoder stays behind [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05). After ingest, the bytes in `originals/` are the authoritative source. Later reads use that copy.
+Observed evidence. Pixels are immutable. The product rule is a lossless TIFF. `prw verify` accepts the 4-byte TIFF magic `II*\x00` or `MM\x00*` and records media type `image/tiff`. Any other prefix is rejected. It hashes bytes and does not decode pixels. Pixel commands read the synthetic uncompressed grayscale layout with decoder `synthetic_uncompressed_tiff` version `1`, and other classic lossless TIFF masters with `lossless_tiff` version `1` ([ADR-0014](adr/0014-stdlib-lossless-tiff.md)). After ingest, the bytes in `originals/` are the authoritative source. Later reads use that copy. Header resolution is not `pixels_per_mm`.
 
 | Field | Required content |
 | --- | --- |
 | `id` | UUIDv5 over the content hash |
 | `content_hash` | `sha256:` and the hexadecimal digest of the immutable bytes |
 | `byte_length` | Length of those bytes |
-| `media_type` | `image/tiff`. Current ingest enforces the 4-byte magic. The fixture reader enforces the uncompressed grayscale layout |
+| `media_type` | `image/tiff`. `prw verify` enforces the 4-byte classic TIFF magic. Pixel commands decode the layouts in [ADR-0014](adr/0014-stdlib-lossless-tiff.md) |
 | `pixel_width`, `pixel_height` | Dimensions in pixels |
 | `fragment_id` | Fragment this capture belongs to. Two captures of one fragment are two rows, linked by this id and `face` |
 | `claimed_resolution_ppi` | Header or operator claim. The importer warns and leaves calibration null. It never populates calibration |

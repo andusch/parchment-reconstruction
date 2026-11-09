@@ -34,9 +34,9 @@ Closing a question that touches public APIs, project format, privacy policy, or 
 
 **Non-goals.** Detector quality claims, join ranking, HTR, and a GUI.
 
-**Blocked by.** [Q-ENG-01](ARCHITECTURE.md#q-eng-01) before a project format is accepted. [Q-ENG-05](ARCHITECTURE.md#q-eng-05) before a TIFF library is chosen. Millimetre origin and axes are [ADR-0011](adr/0011-frame-conventions.md). [Q-PRD-02](PRD.md#q-prd-02) may be followed only as a labeled working assumption.
+**Blocked by.** [Q-ENG-01](ARCHITECTURE.md#q-eng-01) before a project format is accepted. Millimetre origin and axes are [ADR-0011](adr/0011-frame-conventions.md). [Q-PRD-02](PRD.md#q-prd-02) may be followed only as a labeled working assumption.
 
-Packaging ([Q-ENG-02](ARCHITECTURE.md#q-eng-02)) is closed by [P1-01](../tasks/P1-01.md).
+Packaging ([Q-ENG-02](ARCHITECTURE.md#q-eng-02)) is closed by [P1-01](../tasks/P1-01.md). The TIFF library ([Q-ENG-05](ARCHITECTURE.md#q-eng-05)) is closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md).
 
 ## P2
 

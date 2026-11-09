@@ -42,7 +42,7 @@ Leave the downloaded bytes unchanged. CC0 would allow redistribution. This repos
 uv run prw verify "$PILOT/downloads/object.tif" --expected "sha256:…"
 ```
 
-The fixture reader used by pixel commands accepts only the synthetic uncompressed grayscale layout. A museum TIFF is a different file. [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05) still blocks a general TIFF decoder. Segmentation, joins, assemblies, and benchmark scores on these downloads wait on that decoder. Do not write the files into `benchmarks/`.
+`prw verify` checksums a classic TIFF and does not decode it. Pixel commands read a lossless master that is not the synthetic fixture layout with decoder `lossless_tiff` version `1` ([ADR-0014](adr/0014-stdlib-lossless-tiff.md)). A file that decoder refuses does not become an outline. Do not write these downloads into `benchmarks/`. An outline or a ranked join on one of them is not an accuracy claim.
 
 ## Candidate set
 
@@ -63,7 +63,7 @@ The fixture reader used by pixel commands accepts only the synthetic uncompresse
 - **Terms.** [Open Access](https://www.clevelandart.org/open-access) and [Terms and Conditions](https://www.clevelandart.org/terms-and-conditions). Image-file rules for the API are on the [Open Access API](https://openaccess-api.clevelandart.org/) documentation.
 - **Stated license.** CC0 images and the collection dataset are under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/legalcode). The terms say CC0 content may be copied, modified, distributed, or performed, free of charge, for commercial and noncommercial purposes, without prior permission. CC0 requires no attribution. The Open Access page gives an optional citation format and says a citation does not imply endorsement or a trademark license.
 - **Commercial reuse.** Allowed when the image itself is CC0. The API documentation states that dataset text is CC0 even for copyrighted works, and that an image file is supplied only when `share_license_status` is `CC0`. Download the image only in that case.
-- **Local offline copy.** Allowed for CC0 images. When a CC0 record includes an original asset, the API documentation describes that asset as a TIFF. That TIFF can be the file passed to `prw verify` when its magic matches. It is still subject to the fixture-reader limit above.
+- **Local offline copy.** Allowed for CC0 images. When a CC0 record includes an original asset, the API documentation describes that asset as a TIFF. That TIFF can be the file passed to `prw verify` when its magic matches, and to `segment` or `rank` when [ADR-0014](adr/0014-stdlib-lossless-tiff.md) accepts its layout.
 - **Red lines.** `Copyrighted` and `Other` images are outside this candidate set. The terms limit content that is not marked CC0 to non-commercial, educational, and personal use, or to fair use, and they say it may not be sold without written permission. The museum disclaims third-party rights in CC0 content. A CC0 digitization, in the museum's own words, does not change the underlying copyright status of the digitized work. Catalogue text stays on the object page.
 
 ### Wikimedia Commons, file by file
@@ -86,4 +86,4 @@ The fixture reader used by pixel commands accepts only the synthetic uncompresse
 
 ## What stays open
 
-[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) is answered only for this candidate set, and only as a license posture for local storage and checksums. An accuracy claim on real manuscripts stays blocked. Synthetic tears remain the in-repository corpus. Any further source needs its own reading of that source's terms page. Operator steps for one downloaded file are [Public import path](pilot-import-path.md). [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05) stays open.
+[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) is answered only for this candidate set, and only as a license posture for local storage and checksums. An accuracy claim on real manuscripts stays blocked. Synthetic tears remain the in-repository corpus. Any further source needs its own reading of that source's terms page. Operator steps for one downloaded file are [Public import path](pilot-import-path.md). [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05) is closed for the TIFF library. It does not authorize a find-site, a language, or a reading.

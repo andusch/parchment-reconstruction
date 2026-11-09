@@ -14,6 +14,9 @@ is inserted. A page of several components fails. That failure does not set
 
 The algorithm name ``fragment_outline`` and version ``1`` are provenance
 labels. They are not a public CLI contract. ``random_seed`` is omitted.
+Samples come from ``prw.fixture_tiff`` when the bytes are that writer's
+layout, and from ``prw.lossless_tiff`` otherwise. A decode failure is not
+an outline.
 """
 
 from __future__ import annotations
@@ -23,10 +26,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from prw.fixture_tiff import (
-    DECODER_NAME,
-    DECODER_VERSION,
     FixtureSamples,
-    UnsupportedFixtureLayout,
     read_fixture_tiff,
 )
 from prw.frames import CoordinateFrame
@@ -37,6 +37,7 @@ from prw.ingest import (
     VerifiedBytes,
     ingest_bytes,
 )
+from prw.lossless_tiff import DecodedRaster, TiffDecodeFailure, read_lossless_tiff
 from prw.outlines import Fragment, FragmentOutlineRevision, OutlineRevisionLog
 from prw.provenance import (
     AlgorithmRun,
@@ -229,6 +230,8 @@ def _envelope(
     content_hash: str,
     threshold: int,
     code_version: str,
+    decoder_name: str,
+    decoder_version: str,
 ) -> ProvenanceEnvelope:
     return ProvenanceEnvelope.create(
         source_hashes=(content_hash,),
@@ -236,8 +239,8 @@ def _envelope(
         algorithm_name=ALGORITHM_NAME,
         algorithm_version=ALGORITHM_VERSION,
         code_version=code_version,
-        decoder_name=DECODER_NAME,
-        decoder_version=DECODER_VERSION,
+        decoder_name=decoder_name,
+        decoder_version=decoder_version,
     )
 
 
@@ -312,10 +315,12 @@ class FailedSegmentation:
 SegmentResult = (
     IntegrityFailure
     | UnsupportedMediaType
-    | UnsupportedFixtureLayout
+    | TiffDecodeFailure
     | FailedSegmentation
     | SegmentedOutline
 )
+
+type _Raster = FixtureSamples | DecodedRaster
 
 
 class SegmentationLog:
@@ -362,10 +367,16 @@ class SegmentationLog:
         ingested = ingest_bytes(presented, expected_hash=expected_hash)
         if not isinstance(ingested, VerifiedBytes):
             return ingested
-        raster = read_fixture_tiff(presented)
-        if not isinstance(raster, FixtureSamples):
+        raster = _read_raster(presented)
+        if not isinstance(raster, FixtureSamples | DecodedRaster):
             return raster
-        envelope = _envelope(ingested.content_hash, threshold, code_version)
+        envelope = _envelope(
+            ingested.content_hash,
+            threshold,
+            code_version,
+            raster.decoder_name,
+            raster.decoder_version,
+        )
         completed_id = content_id(run_id_inputs(envelope, "completed", None))
         stored = self._completed.get(completed_id)
         if stored is not None:
@@ -396,7 +407,7 @@ class SegmentationLog:
     def _succeed(
         self,
         envelope: ProvenanceEnvelope,
-        raster: FixtureSamples,
+        raster: _Raster,
         threshold: int,
         *,
         project_id: uuid.UUID,
@@ -436,9 +447,19 @@ class SegmentationLog:
         return result
 
 
-def _failure_kind(
-    raster: FixtureSamples, threshold: int
-) -> SegmentationFailureKind | None:
+def _read_raster(presented: bytes | bytearray) -> _Raster | TiffDecodeFailure:
+    """Use the fixture decoder when the bytes are that layout.
+
+    Any other TIFF is read by ``lossless_tiff``. A fixture match keeps
+    decoder name ``synthetic_uncompressed_tiff`` version ``1``.
+    """
+    fixture = read_fixture_tiff(presented)
+    if isinstance(fixture, FixtureSamples):
+        return fixture
+    return read_lossless_tiff(presented)
+
+
+def _failure_kind(raster: _Raster, threshold: int) -> SegmentationFailureKind | None:
     mask = _mask(raster.samples, threshold)
     if not any(mask):
         return "no_foreground"

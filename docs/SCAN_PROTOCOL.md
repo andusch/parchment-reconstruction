@@ -24,7 +24,7 @@ These rules are already decided:
 - A lossy derivative is never the source of record.
 - Cropping, tonal change, or other enhancement creates a new derived file with a provenance envelope. The derived file cites the source hash and does not replace it.
 
-Lossless TIFF is the required master. Ingest enforces that media type and rejects anything else. After ingest, the `originals/` copy is the authoritative byte source. The decoder name and version are recorded in provenance.
+Lossless TIFF is the required master. `prw verify` accepts classic TIFF magic and rejects any other prefix. A pixel command then refuses a compression that is not lossless. After ingest, the `originals/` copy is the authoritative byte source. The decoder name and version are recorded in provenance. The accepted and refused layouts are [ADR-0014](adr/0014-stdlib-lossless-tiff.md).
 
 The imaging bar below, other than the TIFF rule, is a working assumption, not a validated standard. It retires with [Q-SCI-10](#q-sci-10).
 

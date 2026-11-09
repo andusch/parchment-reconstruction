@@ -47,5 +47,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Verify a source image](./verify-source.md) covers a matching checksum, a mismatch, a non-TIFF, and a missing path.
 - [Generate a synthetic leaf](./generate-fixtures.md) covers writing a leaf, repeating it, and refusing a project-directory destination.
 - [Segment a fragment](./segment-outline.md) covers a pixel outline, a millimetre outline, a checksum failure, and a missing path.
+- [Segment a lossless master](./segment-lossless-master.md) covers a non-fixture TIFF outline, a rank of two such files, and unchanged bytes.
 - [Rank joins](./rank-joins.md) covers physical order, a missing scale, a BenchmarkLabel path, and a missing image.
 - [Record provenance](./provenance-envelope.md) covers a deterministic envelope, a seeded envelope, and a rejected parameter.
