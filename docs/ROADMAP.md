@@ -62,6 +62,8 @@ Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) 
 
 Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02.md) join records, [P3-03](../tasks/P3-03.md) chord edges, [P3-04](../tasks/P3-04.md) pairwise proposals, [P3-05](../tasks/P3-05.md) physical rank, [P3-06](../tasks/P3-06.md) outline invalidation, [P3-07](../tasks/P3-07.md) join recall at K, and [P3-08](../tasks/P3-08.md) headless CLI.
 
+**Pilot-06.** [PILOT-06](../tasks/PILOT-06.md) records one synthetic pool whose `prw rank` list has join hypotheses, and the `prw-review` flags that load it. The operator note is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md). The rows stay hypotheses. The recall exit criterion above is unchanged.
+
 ## P4
 
 **Goal.** Search top-N page assemblies on the synthetic fixture.
@@ -100,7 +102,7 @@ Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) 
 
 **Exit criteria.** Detection, search, and HTR run off the UI thread. Every reading shows text status and epistemic class. Validation does not delete alternatives. Rank 1 is labeled as a hypothesis.
 
-**Pilot-05.** [PILOT-05](../tasks/PILOT-05.md) and [ADR-0015](adr/0015-thin-review-window.md) ship a thin window for ranked joins on a synthetic pool. Rank 1 is labeled a hypothesis. A decision does not delete alternatives. Rank runs on a Qt thread. That slice does not meet the exit criteria above. Readings, assemblies, HTR, a worker process, roles, a desktop target, a named reconstruction, and the sync-folder warning remain.
+**Pilot-05.** [PILOT-05](../tasks/PILOT-05.md) and [ADR-0015](adr/0015-thin-review-window.md) ship a thin window for ranked joins on a synthetic pool. Rank 1 is labeled a hypothesis. A decision does not delete alternatives. Rank runs on a Qt thread. That slice does not meet the exit criteria above. Readings, assemblies, HTR, a worker process, roles, a desktop target, a named reconstruction, and the sync-folder warning remain. The pool those flags load when the list has join hypotheses is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md) ([PILOT-06](../tasks/PILOT-06.md)).
 
 **Non-goals.** Cloud collaboration and automatic publication.
 
