@@ -146,6 +146,8 @@ uv run prw rank \
 
 Pass `--pixels-per-mm` and `--uncertainty` only when `image.note` has a measurement. Leave this leaf out of any `benchmarks/` directory. It has no ground-truth label. Synthetic fixtures remain the evaluation material. This note records no find-site, no language, and no reading.
 
+One Cleveland CC0 TIFF run with these commands is [First public-leaf run](pilot-first-run.md). Ranked joins there stay hypotheses.
+
 ## Git
 
 Image bytes stay outside Git, including when the license permits redistribution. The filled `image.note` stays beside the image, outside the clone. The clone's ignore rules cover a TIFF that lands inside the tree. The pilot directory stays outside the clone.
