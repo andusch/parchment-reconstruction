@@ -56,6 +56,17 @@ SegmentationFailureKind = Literal[
     "hole",
     "degenerate_boundary",
 ]
+
+
+def pool_project_id(label: str) -> uuid.UUID:
+    """Project id for one opaque pool label.
+
+    The headless rank command and the review window both use this id, so
+    equal physical scores break ties the same way.
+    """
+    return content_id(["cli-segment", label])
+
+
 _NEIGHBORS_4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
 # Clockwise Moore neighborhood, starting at north. +x is right and +y is down.
 _MOORE = (

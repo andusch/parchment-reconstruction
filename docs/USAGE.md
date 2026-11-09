@@ -1,6 +1,6 @@
 # Using the workbench
 
-This guide runs the commands that exist in version `0.0.0`. The program is the headless console `prw`. Command names and flags are unfrozen. They are not a stable interface. The project format is still [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01).
+This guide runs the commands that exist in version `0.0.0`. The headless console is `prw`. The review window is `prw-review`. Command names and flags are unfrozen. They are not a stable interface. The project format is still [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01).
 
 Terms are defined in the [glossary](DATA_MODEL.md#glossary). A ranked row is a hypothesis. The first row is the highest score in that list.
 
@@ -8,7 +8,7 @@ Work on a synthetic leaf in a disposable directory outside the checkout. Real sc
 
 ## Before you start
 
-Install [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. From the checkout root, `uv run` selects this project. `uv run prw` and `uv run python -m prw.cli` call the same function.
+Install [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. From the checkout root, `uv run` selects this project. `uv run prw` and `uv run python -m prw.cli` call the same function. `uv run prw-review` opens the review window. That command needs the `ui` group, which `uv sync` installs by default. The binding is PySide6-Essentials. See [ADR-0015](adr/0015-thin-review-window.md).
 
 ```bash
 cd /path/to/parchment-reconstruction
@@ -393,12 +393,34 @@ Add `--random-seed 7` when the algorithm used randomness. That envelope records 
 
 Run `uv run prw agree --help` for the flag list.
 
+## 12. Review ranked joins in the window
+
+Joins stay hypotheses. Rank 1 is the first row of the physical score sort. It is not a historical join and it is not the answer.
+
+From the checkout, after the synthetic leaf in section 1 exists:
+
+```bash
+uv run prw-review \
+  --image piece-a "$PIECE_A" \
+  --image piece-b "$PIECE_B" \
+  --foreground-threshold 1 \
+  --code-version "$CODE" \
+  --pixels-per-mm 10 \
+  --uncertainty 0.1
+```
+
+The window needs a display. The list labels every row `hypothesis`, including rank 1. The sketch draws the two outlines in fragment-local millimetres. It does not draw the TIFF. Reject, Keep as hypothesis, and Defer append a validation decision. The other rows stay. Reject sets the status `rejected-via-ValidationDecision` and does not change the join's epistemic class. Keep and Defer do not change that class or the status.
+
+`Load synthetic pair` writes a disposable leaf under a temporary directory outside the checkout and ranks two of its fragment files. It does not read `benchmarks/labels.json`.
+
+The rank call runs off the UI thread, one call at a time. Closing the window waits for that call. There is no cancellation. A worker process is still [Q-ENG-06](OPEN_QUESTIONS.md#q-eng-06). The actor string is `local-operator`. The window does not ask for a person's name, and it does not write a project directory.
+
 ## What this build leaves for later
 
 [Roadmap](ROADMAP.md) phases after the current CLI are still ahead:
 
 - Ancient Greek HTR, and the `language` score channel.
-- The Qt validation window. Detection, search, and later HTR are specified to run off the UI thread. This build has no window.
+- Readings, assemblies, and HTR in the Qt window. The review window shows ranked joins only. Detection, search, and later HTR stay off the UI thread when they arrive. A worker process is still open.
 - Scholarly export.
 - A stored project. The CLI does not write `manifest.json` or `originals/`.
 

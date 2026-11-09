@@ -18,7 +18,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Are scholar, imaging operator, and benchmark operator separate roles in v1, or one operator?
 - **Why it matters.** Separate accounts change the validation record and the export rules for operator names. One shared operator is enough for a single-user desktop tool.
 - **Options.** One local operator with a role label on each action; three distinct local profiles; no role field at all.
-- **Blocks.** Role-specific UI in P7. P1 can store a single actor string under the labeled assumption of one local operator.
+- **Blocks.** Role-specific UI in P7. P1 can store a single actor string under the labeled assumption of one local operator. Pilot-05 stores the actor string `local-operator` and does not define roles. This question stays open.
 
 ### Q-PRD-02
 
@@ -57,7 +57,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Is macOS the only first desktop target?
 - **Why it matters.** Qt can target more than one operating system. The first tested platform still has to be chosen.
 - **Options.** macOS only; macOS and Linux; macOS, Linux, and Windows.
-- **Blocks.** P7 packaging claims. Documentation in P0 is platform-neutral.
+- **Blocks.** P7 packaging claims. Documentation in P0 is platform-neutral. Pilot-05 does not choose a desktop target. This question stays open.
 
 ### Q-PRD-07
 
@@ -80,7 +80,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Is a working reconstruction a named selection, or only a set of validation decisions?
 - **Why it matters.** A named selection can be mistaken for the original page if the UI labels it poorly.
 - **Options.** Validation decisions only; a named selection that cites hypothesis ids and keeps its epistemic class as scholarly restoration; a mutable canvas that edits placements in place.
-- **Blocks.** The P7 working-set UI, and any project-format field for a preferred reconstruction.
+- **Blocks.** The P7 working-set UI, and any project-format field for a preferred reconstruction. Pilot-05 records validation decisions only and does not name a reconstruction. This question stays open.
 
 ### Q-PRD-10
 
@@ -259,7 +259,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Should the app warn when the project directory is inside a cloud-sync folder?
 - **Why it matters.** A warning can prevent an accidental upload. Detecting sync roots is platform-specific and can be wrong.
 - **Options.** Warn when the path is under a known sync root; document the risk and do not detect it; refuse to create a project in a detected sync root.
-- **Blocks.** A P7 warning or refusal. The risk stands in P0 as an operator responsibility.
+- **Blocks.** A P7 warning or refusal. The risk stands in P0 as an operator responsibility. Pilot-05 writes no project directory and does not detect a sync folder. This question stays open.
 
 ### Q-PRI-02
 
@@ -285,7 +285,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Content-addressed files, SQLite, or both?
 - **Why it matters.** The store is the project format. Changing it later requires a migration and stop-and-ask.
 - **Options.** A directory of content-addressed files plus JSON records; a single SQLite database with originals stored as files beside it; SQLite for records and content-addressed files for originals, which is the layout sketched in the architecture.
-- **Blocks.** Accepting a project format. P1 implements a store only after this question is closed, or keeps the implementation behind a decision that answers it.
+- **Blocks.** Accepting a project format. P1 implements a store only after this question is closed, or keeps the implementation behind a decision that answers it. Pilot-05 keeps the review session in memory and writes no project directory. This question stays open.
 
 ### Q-ENG-02
 
@@ -323,4 +323,4 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** Worker thread or worker process for expensive jobs?
 - **Why it matters.** [ADR-0005](adr/0005-qt-shell-and-headless-core.md) requires work off the UI thread and does not choose the isolation mechanism. A process crash can leave the shell up. A thread shares memory and needs a stricter cancellation story.
 - **Options.** A worker thread; a worker process that calls the same use-case entry points as the CLI; either, chosen per job class.
-- **Blocks.** P7 worker implementation. P1 CLI work can run in the foreground process.
+- **Blocks.** P7 worker implementation. P1 CLI work can run in the foreground process. Pilot-05 runs one rank on a Qt thread inside the review window and does not choose thread versus process for P7. This question stays open. See [ADR-0015](adr/0015-thin-review-window.md).

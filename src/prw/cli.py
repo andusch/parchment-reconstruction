@@ -64,7 +64,12 @@ from prw.provenance import (
     StatusStream,
 )
 from prw.scale import CallerScale, ScaledOutline, ScaleLog
-from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
+from prw.segment import (
+    FailedSegmentation,
+    SegmentationLog,
+    SegmentedOutline,
+    pool_project_id,
+)
 from prw.synthetic_tear import generate_synthetic_leaf
 
 
@@ -799,7 +804,7 @@ def _segment_presented(
     stored_label = args.label if label is None else label
     return SegmentationLog().segment(
         presented,
-        project_id=content_id(["cli-segment", stored_label]),
+        project_id=pool_project_id(stored_label),
         label=stored_label,
         foreground_threshold=args.foreground_threshold,
         code_version=args.code_version,

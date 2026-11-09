@@ -2,7 +2,7 @@
 
 Local-first desktop application that ranks physical and textual reconstruction hypotheses for fragmented parchment. A scholar reviews every hypothesis. Algorithmic output remains a hypothesis about the page and the text.
 
-The Python package is `prw` (`src/prw`), distributed as `parchment-workbench`. It has no runtime dependencies. Internal helpers emit canonical JSON, `sha256:` digests, and content-derived UUIDv5 identifiers. In-memory provenance envelopes and an append-only status stream record parameters and negative knowledge. In-memory coordinate frames name kind, origin, and axes. Ingest hashes caller-supplied bytes, accepts classic TIFF magic, and records a checksum mismatch as an integrity failure. Pixel commands read other classic lossless TIFF masters with the standard library ([ADR-0014](docs/adr/0014-stdlib-lossless-tiff.md)). A seeded generator writes synthetic fragment geometry, and its ground truth, only under `benchmarks/`. It also writes uncompressed fixture TIFFs and a SHA-256 image manifest beside that store. Those types are not a stable public API. Checks:
+The Python package is `prw` (`src/prw`), distributed as `parchment-workbench`. The headless console has no third-party requirement in `project.dependencies`. The review window uses PySide6-Essentials from the `ui` group ([ADR-0015](docs/adr/0015-thin-review-window.md)). Internal helpers emit canonical JSON, `sha256:` digests, and content-derived UUIDv5 identifiers. In-memory provenance envelopes and an append-only status stream record parameters and negative knowledge. In-memory coordinate frames name kind, origin, and axes. Ingest hashes caller-supplied bytes, accepts classic TIFF magic, and records a checksum mismatch as an integrity failure. Pixel commands read other classic lossless TIFF masters with the standard library ([ADR-0014](docs/adr/0014-stdlib-lossless-tiff.md)). A seeded generator writes synthetic fragment geometry, and its ground truth, only under `benchmarks/`. It also writes uncompressed fixture TIFFs and a SHA-256 image manifest beside that store. Those types are not a stable public API. Checks:
 
 ```text
 uv run ruff check .
@@ -13,7 +13,7 @@ uv run pytest -m "not slow"
 
 ## Headless CLI
 
-`python -m prw.cli` calls ingest (`prw.ingest`), coordinate frames (`prw.frames`), provenance envelopes (`prw.provenance`), the synthetic fixture generator (`prw.synthetic_tear`), segmentation (`prw.segment`), caller-supplied scale (`prw.scale`), outline agreement (`prw.outline_agreement`), chord edges (`prw.edge_chord`), pairwise joins (`prw.pairwise_join`, ordered by `prw.join_rank`), join recall (`prw.join_recall`), assembly search (`prw.assembly_search`), assembly rank (`prw.assembly_rank`), placement error (`prw.placement_error`), and end-to-end join presence (`prw.assembly_join_presence`). It does not import Qt. Command names and flags are unfrozen and are not a stable interface. The project format is still [Q-ENG-01](docs/OPEN_QUESTIONS.md#q-eng-01).
+`python -m prw.cli` calls ingest (`prw.ingest`), coordinate frames (`prw.frames`), provenance envelopes (`prw.provenance`), the synthetic fixture generator (`prw.synthetic_tear`), segmentation (`prw.segment`), caller-supplied scale (`prw.scale`), outline agreement (`prw.outline_agreement`), chord edges (`prw.edge_chord`), pairwise joins (`prw.pairwise_join`, ordered by `prw.join_rank`), join recall (`prw.join_recall`), assembly search (`prw.assembly_search`), assembly rank (`prw.assembly_rank`), placement error (`prw.placement_error`), and end-to-end join presence (`prw.assembly_join_presence`). It does not import Qt. `prw-review` opens the review window on the same join-ranking use cases. Command names and flags are unfrozen and are not a stable interface. The project format is still [Q-ENG-01](docs/OPEN_QUESTIONS.md#q-eng-01).
 
 Processing stays on the local machine. Original source images are immutable and checksum-verified. Real scans never enter Git. See [Security and privacy](docs/SECURITY_AND_PRIVACY.md) and [AGENTS.md](AGENTS.md). A partial license review for three public sources, stored outside this checkout, is [Public-corpus pilot](docs/pilot-public-corpus.md). The directory, checksum, and scale note for one of those files are [Public import path](docs/pilot-import-path.md). One worked Cleveland CC0 leaf, with its hash and commands, is [First public-leaf run](docs/pilot-first-run.md).
 
@@ -21,7 +21,7 @@ Terms used across these documents are defined once, in the [data model glossary]
 
 ## Using the current build
 
-The commands you can run today are the headless `prw` console. [Using the workbench](docs/USAGE.md) walks them on a synthetic leaf: checksums, outlines, ranked joins, and assembly reports. Command names and flags are unfrozen. This build has no window.
+The commands you can run today are the headless `prw` console and the review window `prw-review`. [Using the workbench](docs/USAGE.md) walks them on a synthetic leaf: checksums, outlines, ranked joins, and assembly reports. Command names and flags are unfrozen. The window lists those joins as hypotheses.
 
 ## Reading order
 

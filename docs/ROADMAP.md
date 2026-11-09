@@ -100,6 +100,8 @@ Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) 
 
 **Exit criteria.** Detection, search, and HTR run off the UI thread. Every reading shows text status and epistemic class. Validation does not delete alternatives. Rank 1 is labeled as a hypothesis.
 
+**Pilot-05.** [PILOT-05](../tasks/PILOT-05.md) and [ADR-0015](adr/0015-thin-review-window.md) ship a thin window for ranked joins on a synthetic pool. Rank 1 is labeled a hypothesis. A decision does not delete alternatives. Rank runs on a Qt thread. That slice does not meet the exit criteria above. Readings, assemblies, HTR, a worker process, roles, a desktop target, a named reconstruction, and the sync-folder warning remain.
+
 **Non-goals.** Cloud collaboration and automatic publication.
 
 **Blocked by.** [Q-ENG-06](ARCHITECTURE.md#q-eng-06) for the worker mechanism. [Q-PRD-01](PRD.md#q-prd-01), [Q-PRD-06](PRD.md#q-prd-06), and [Q-PRD-09](PRD.md#q-prd-09) for roles, the first desktop target, and a named working reconstruction. [Q-PRI-01](SECURITY_AND_PRIVACY.md#q-pri-01) for a sync-folder warning. The labeling risks [R-01](RISK_REGISTER.md#r-01), [R-11](RISK_REGISTER.md#r-11), and [R-15](RISK_REGISTER.md#r-15) apply.

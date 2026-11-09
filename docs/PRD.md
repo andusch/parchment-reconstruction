@@ -96,7 +96,7 @@ Are scholar, imaging operator, and benchmark operator separate roles in v1, or o
 Separate accounts change the validation record and the export rules for operator names. One shared operator is enough for a single-user desktop tool.
 
 - Options: one local operator with a role label on each action; three distinct local profiles; no role field at all.
-- Blocks: role-specific UI in P7. P1 can store a single actor string under the labeled assumption of one local operator.
+- Blocks: role-specific UI in P7. P1 can store a single actor string under the labeled assumption of one local operator. Pilot-05 stores the actor string `local-operator` and does not define roles. This question stays open.
 
 ### Q-PRD-02
 
@@ -140,7 +140,7 @@ Is macOS the only first desktop target?
 Qt can target more than one operating system. The first tested platform still has to be chosen.
 
 - Options: macOS only; macOS and Linux; macOS, Linux, and Windows.
-- Blocks: P7 packaging claims. Documentation in P0 is platform-neutral.
+- Blocks: P7 packaging claims. Documentation in P0 is platform-neutral. Pilot-05 does not choose a desktop target. This question stays open.
 
 ### Q-PRD-07
 
@@ -166,7 +166,7 @@ Is a working reconstruction a named selection, or only a set of validation decis
 A named selection can be mistaken for the original page if the UI labels it poorly.
 
 - Options: validation decisions only; a named selection that cites hypothesis ids and keeps its epistemic class as scholarly restoration; a mutable canvas that edits placements in place.
-- Blocks: the P7 working-set UI, and any project-format field for a preferred reconstruction.
+- Blocks: the P7 working-set UI, and any project-format field for a preferred reconstruction. Pilot-05 records validation decisions only and does not name a reconstruction. This question stays open.
 
 ### Q-PRD-10
 

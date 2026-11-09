@@ -5,7 +5,7 @@ description: Drive the parchment-workbench headless CLI (prw) from a disposable 
 
 # Verify parchment-workbench
 
-The user-facing surface that exists is the headless CLI. `prw` and `python -m prw.cli` both call `prw.cli:main`. The Qt shell in ADR-0005 is not in the package: there is no window, URL, or port. Do not start a GUI, and do not report a library call or a pytest as this proof.
+The surface this skill drives is the headless CLI. `prw` and `python -m prw.cli` both call `prw.cli:main`. `prw-review` opens the review window from ADR-0015. This skill does not launch it. There is no URL and no port. Do not start a GUI, and do not report a library call or a pytest as this proof.
 
 Command names are unfrozen. Drive the commands below as they are. `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are real commands and have no feature file. A run that does not drive them has not verified them.
 
