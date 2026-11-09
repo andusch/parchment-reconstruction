@@ -1,6 +1,6 @@
 # Parchment workbench verification map
 
-This directory is the maintained source for verifying the user-facing behavior of the parchment-workbench CLI. Read this index before driving the app, then use the matching feature file as the recipe.
+This directory is the maintained source for verifying the user-facing behavior of the parchment-workbench CLI and the review window. Read this index before driving the app, then use the matching feature file as the recipe.
 
 ## Baseline preconditions
 
@@ -11,7 +11,8 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Export doctor fields with `eval "$(uv run python .cursor/skills/verify-prw/verify_prw.py exports --run RUN_ID)"`.
 - Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,segment,verify`.
 - Drive only the instance this launch created. A second run id is a second instance. The same run id refuses a concurrent drive.
-- There is no Qt shell, port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
+- There is no port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
+- `prw-review` is a separate console script. It is not one of the names on the `commands` line. The review-window feature drives it. `--program` defaults to `prw`.
 - `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are implemented commands and have no feature file. Do not report them as verified.
 
 ## Driving conventions
@@ -48,5 +49,6 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Generate a synthetic leaf](./generate-fixtures.md) covers writing a leaf, repeating it, and refusing a project-directory destination.
 - [Segment a fragment](./segment-outline.md) covers a pixel outline, a millimetre outline, a checksum failure, and a missing path.
 - [Segment a lossless master](./segment-lossless-master.md) covers a non-fixture TIFF outline, a rank of two such files, and unchanged bytes.
-- [Rank joins](./rank-joins.md) covers physical order, a missing scale, a BenchmarkLabel path, and a missing image.
+- [Rank joins](./rank-joins.md) covers physical order, a missing scale, a BenchmarkLabel path, two copies of one raster, and a missing image.
 - [Record provenance](./provenance-envelope.md) covers a deterministic envelope, a seeded envelope, and a rejected parameter.
+- [Review ranked joins](./review-window.md) covers help, an offscreen list of hypotheses, Load synthetic pair, a BenchmarkLabel path, and a missing image.

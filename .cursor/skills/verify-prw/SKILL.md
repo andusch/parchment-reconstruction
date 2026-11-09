@@ -1,11 +1,11 @@
 ---
 name: verify-prw
-description: Drive the parchment-workbench headless CLI (prw) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying checksum verification, fixture generation, segmentation, join ranking, or provenance output, or when a change to those commands needs a user-level proof. There is no Qt shell to launch.
+description: Drive the parchment-workbench headless CLI (prw) and the review window (prw-review) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying checksum verification, fixture generation, segmentation, join ranking, provenance output, or the offscreen review window, or when a change to those commands needs a user-level proof.
 ---
 
 # Verify parchment-workbench
 
-The surface this skill drives is the headless CLI. `prw` and `python -m prw.cli` both call `prw.cli:main`. `prw-review` opens the review window from ADR-0015. This skill does not launch it. There is no URL and no port. Do not start a GUI, and do not report a library call or a pytest as this proof.
+The surfaces this skill drives are the headless CLI and the review window. `prw` and `python -m prw.cli` both call `prw.cli:main`. `prw-review` and `python -m prw.review_window` both call `prw.review_window:main`. That window blocks in the Qt event loop and prints nothing. The review-window feature launches the same entry on `QT_QPA_PLATFORM=offscreen` through `drive_review.py`, which calls `main`, reads the widgets, and exits. There is no URL and no port. Do not report a library call or a pytest as this proof.
 
 Command names are unfrozen. Drive the commands below as they are. `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are real commands and have no feature file. A run that does not drive them has not verified them.
 
@@ -67,13 +67,11 @@ That sets `RUN_ID`, `ROOT`, `IMAGES`, `BENCHMARKS`, `SCRATCH`, `PAGE`, `PAGE_HAS
 
 ## Drive
 
-Each drive is a new session. Its standard input is that session's controlling terminal. Standard output and standard error are separate pipes. The harness runs, from the checkout root:
-
-```text
-uv run python -m prw.cli <arguments>
-```
+Each drive is a new session. Its standard input is that session's controlling terminal. Standard output and standard error are separate pipes. From the checkout root the harness runs `uv run python -m prw.cli`, `uv run python -m prw.review_window`, or `uv run python .cursor/skills/verify-prw/drive_review.py`, according to `--program`.
 
 `run` refuses when doctor would fail, when this run id already has a drive in progress, and when an argument points at `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout. One run id is one instance. A second concurrent `run` on that id exits 1 with `This run already has a drive in progress.` Start another `launch` when you need a second instance.
+
+`--program` chooses the process. `prw` is the default and runs `python -m prw.cli`. `prw-review` runs `python -m prw.review_window` with `QT_QPA_PLATFORM=offscreen`. `prw-review-offscreen` runs `.cursor/skills/verify-prw/drive_review.py` on that same platform. The review-window feature is the only one that passes `--program`.
 
 ```text
 uv run python .cursor/skills/verify-prw/verify_prw.py run \
@@ -98,7 +96,7 @@ Finished transcripts are written to:
 
 | File | Contents |
 | --- | --- |
-| `command.txt` | The exact `uv run python -m prw.cli ...` argv |
+| `command.txt` | The exact argv the harness executed |
 | `stdout.txt` | Standard output |
 | `stderr.txt` | Standard error |
 | `exit_code.txt` | The CLI status |
@@ -113,7 +111,7 @@ A proof captures the command and the resulting state. For a file the command mus
 uv run python .cursor/skills/verify-prw/verify_prw.py cleanup --run RUN_ID
 ```
 
-Cleanup signals only the process recorded for that run, and only when `ps` shows `prw.cli` and the process group is that session. It then deletes `$TMPDIR/prw-verify/<run-id>/`. It does not delete `.cursor/skills/verify-prw/artifacts/`. A second cleanup prints `prw-verify cleanup absent <run-id>` and exits 0. Run cleanup after a failed drive so the temp directory does not stay behind. Keep the evidence.
+Cleanup signals only the process recorded for that run, and only when `ps` shows `prw.cli`, `prw.review_window`, or `drive_review.py` and the process group is that session. It then deletes `$TMPDIR/prw-verify/<run-id>/`. It does not delete `.cursor/skills/verify-prw/artifacts/`. A second cleanup prints `prw-verify cleanup absent <run-id>` and exits 0. Run cleanup after a failed drive so the temp directory does not stay behind. Keep the evidence.
 
 ## Helpers
 
@@ -124,6 +122,8 @@ uv run python .cursor/skills/verify-prw/verify_prw.py launch
 uv run python .cursor/skills/verify-prw/verify_prw.py doctor --run RUN_ID
 uv run python .cursor/skills/verify-prw/verify_prw.py exports --run RUN_ID
 uv run python .cursor/skills/verify-prw/verify_prw.py run --run RUN_ID --feature FEATURE --entry "ENTRY" --step STEP -- <prw arguments>
+uv run python .cursor/skills/verify-prw/verify_prw.py run --run RUN_ID --feature FEATURE --entry "ENTRY" --step STEP --program prw-review -- --help
+uv run python .cursor/skills/verify-prw/verify_prw.py run --run RUN_ID --feature FEATURE --entry "ENTRY" --step STEP --program prw-review-offscreen -- <prw-review arguments>
 uv run python .cursor/skills/verify-prw/verify_prw.py cleanup --run RUN_ID
 ```
 

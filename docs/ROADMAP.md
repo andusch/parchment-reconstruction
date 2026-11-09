@@ -64,6 +64,8 @@ Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02
 
 **Pilot-06.** [PILOT-06](../tasks/PILOT-06.md) records one synthetic pool whose `prw rank` list has join hypotheses, and the `prw-review` flags that load it. The operator note is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md). The rows stay hypotheses. The recall exit criterion above is unchanged.
 
+**Pilot-07.** [PILOT-07](../tasks/PILOT-07.md) adds [samples/fragmented-leaf](../samples/fragmented-leaf/README.md), a one-command way to materialize that leaf outside the checkout, and records `prw-review` in the verify-prw feature map. The rows stay hypotheses.
+
 ## P4
 
 **Goal.** Search top-N page assemblies on the synthetic fixture.
@@ -102,7 +104,7 @@ Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) 
 
 **Exit criteria.** Detection, search, and HTR run off the UI thread. Every reading shows text status and epistemic class. Validation does not delete alternatives. Rank 1 is labeled as a hypothesis.
 
-**Pilot-05.** [PILOT-05](../tasks/PILOT-05.md) and [ADR-0015](adr/0015-thin-review-window.md) ship a thin window for ranked joins on a synthetic pool. Rank 1 is labeled a hypothesis. A decision does not delete alternatives. Rank runs on a Qt thread. That slice does not meet the exit criteria above. Readings, assemblies, HTR, a worker process, roles, a desktop target, a named reconstruction, and the sync-folder warning remain. The pool those flags load when the list has join hypotheses is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md) ([PILOT-06](../tasks/PILOT-06.md)).
+**Pilot-05.** [PILOT-05](../tasks/PILOT-05.md) and [ADR-0015](adr/0015-thin-review-window.md) ship a thin window for ranked joins on a synthetic pool. Rank 1 is labeled a hypothesis. A decision does not delete alternatives. Rank runs on a Qt thread. That slice does not meet the exit criteria above. Readings, assemblies, HTR, a worker process, roles, a desktop target, a named reconstruction, and the sync-folder warning remain. The pool those flags load when the list has join hypotheses is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md) ([PILOT-06](../tasks/PILOT-06.md)). [PILOT-07](../tasks/PILOT-07.md) drives that window from verify-prw on the offscreen platform and adds the one-command sample.
 
 **Non-goals.** Cloud collaboration and automatic publication.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Drive the parchment-workbench CLI in an isolated synthetic-fixture directory.
+"""Drive the parchment-workbench CLI and review window in an isolated directory.
 
 The instance lives under the OS temp directory. Proof transcripts are written
 under ``.cursor/skills/verify-prw/artifacts`` and are not removed by cleanup.
@@ -138,7 +138,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             _print_exports(_check(args.run))
             return 0
         if args.command == "run":
-            return _run(args.run, args.feature, args.entry, args.step, prw_args)
+            return _run(
+                args.run,
+                args.feature,
+                args.entry,
+                args.step,
+                prw_args,
+                args.program,
+            )
         if args.command == "cleanup":
             return _cleanup(args.run, announce=True)
     except HarnessError as exc:
@@ -161,6 +168,11 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--feature", required=True)
     run.add_argument("--entry", required=True)
     run.add_argument("--step", required=True)
+    run.add_argument(
+        "--program",
+        choices=("prw", "prw-review", "prw-review-offscreen"),
+        default="prw",
+    )
     cleanup = commands.add_parser("cleanup")
     cleanup.add_argument("--run", required=True)
     return parser
@@ -220,6 +232,7 @@ def _run(
     entry: str,
     step: str,
     prw_args: Sequence[str],
+    program: str,
 ) -> int:
     _require_token(feature, "feature")
     _require_token(step, "step")
@@ -238,7 +251,7 @@ def _run(
         "run_id": snapshot["run_id"],
     }
     with _lock(_instance_root(run_id)):
-        result = _execute(_instance_root(run_id), prw_args)
+        result = _execute(_instance_root(run_id), prw_args, program=program)
         _write_transcript(partial, result, meta=meta)
         evidence.parent.mkdir(parents=True, exist_ok=True)
         partial.rename(evidence)
@@ -437,8 +450,24 @@ def _forbidden_words(payload: bytes) -> bool:
     return "hypothesis" in text or "correct_join" in text
 
 
-def _execute(root: Path, prw_args: Sequence[str]) -> DriveResult:
-    argv = ("uv", "run", "python", "-m", "prw.cli", *prw_args)
+def _execute(
+    root: Path,
+    prw_args: Sequence[str],
+    *,
+    program: str = "prw",
+) -> DriveResult:
+    env = os.environ.copy()
+    if program == "prw":
+        argv = ("uv", "run", "python", "-m", "prw.cli", *prw_args)
+    elif program == "prw-review":
+        argv = ("uv", "run", "python", "-m", "prw.review_window", *prw_args)
+        env["QT_QPA_PLATFORM"] = "offscreen"
+    elif program == "prw-review-offscreen":
+        script = REPO_ROOT / ".cursor" / "skills" / "verify-prw" / "drive_review.py"
+        argv = ("uv", "run", "python", str(script), *prw_args)
+        env["QT_QPA_PLATFORM"] = "offscreen"
+    else:
+        raise HarnessError(f"Unknown program {program}.", status=2)
     if shutil.which("uv") is None:
         raise HarnessError("uv is not on PATH.", status=2)
     try:
@@ -453,6 +482,7 @@ def _execute(root: Path, prw_args: Sequence[str]) -> DriveResult:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=REPO_ROOT,
+            env=env,
             start_new_session=True,
             close_fds=True,
         )
@@ -545,9 +575,12 @@ def _signal_pid(pid: int, sig: int, expected_pgid: int | None = None) -> None:
     if live is None:
         return
     live_pgid, command = live
-    if "prw.cli" not in command:
+    if not any(
+        marker in command
+        for marker in ("prw.cli", "prw.review_window", "drive_review.py")
+    ):
         raise HarnessError(
-            "active.pid is not a prw.cli process; cleanup left it untouched.",
+            "active.pid is not a verify-prw drive; cleanup left it untouched.",
             status=2,
         )
     helper_pgid = os.getpgrp()
