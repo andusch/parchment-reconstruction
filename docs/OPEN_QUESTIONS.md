@@ -312,11 +312,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-ENG-05
 
-- **Owning document.** [ARCHITECTURE.md](ARCHITECTURE.md#q-eng-05)
-- **Question.** Which TIFF and image libraries are allowed, including license?
-- **Why it matters.** Source images are lossless TIFF. Reading them without rewriting bytes is an ingest requirement.
-- **Options.** The Python standard library where it is sufficient; a documented TIFF library chosen with its license at implementation time.
-- **Blocks.** P1 image ingest. P0 does not select a library. The commands this checkout already runs, and the layouts they still refuse, are listed in [pilot-import-path.md](pilot-import-path.md). That note does not close this question.
+- **Status.** Closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md) and [PILOT-03](../tasks/PILOT-03.md).
+- **Owning document.** [ADR-0014](adr/0014-stdlib-lossless-tiff.md)
+- **Decision.** No new runtime dependency. `struct` and `zlib` from the Python standard library read classic lossless TIFF. The synthetic fixture layout keeps decoder `synthetic_uncompressed_tiff` version `1`. Every other accepted master records `lossless_tiff` version `1`. Epistemic class is unchanged. Header resolution is not `pixels_per_mm`.
+- **Blocks.** Nothing further for the TIFF library. Refused layouts are in the ADR. A project format remains [Q-ENG-01](ARCHITECTURE.md#q-eng-01).
 
 ### Q-ENG-06
 

@@ -5,9 +5,9 @@ import struct
 import uuid
 from pathlib import Path
 
-from prw.fixture_tiff import UnsupportedFixtureLayout
 from prw.identity import content_id, hash_value
 from prw.ingest import IntegrityFailure, UnsupportedMediaType
+from prw.lossless_tiff import TiffDecodeFailure
 from prw.outlines import FragmentOutlineRevision
 from prw.provenance import AlgorithmRun
 from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
@@ -161,12 +161,16 @@ def test_checksum_and_layout_failures_leave_the_bytes_and_skip_the_run() -> None
     assert log.outlines == ()
 
     compressed = bytearray(before)
-    struct.pack_into("<H", compressed, TIFF_WIDTH_OFFSET + 3 * 12, 5)
+    struct.pack_into("<H", compressed, TIFF_WIDTH_OFFSET + 3 * 12, 7)
     layout = _segment(log, compressed)
-    assert isinstance(layout, UnsupportedFixtureLayout)
-    assert layout.kind == "compressed_strip"
+    assert isinstance(layout, TiffDecodeFailure)
+    assert layout.kind == "jpeg_compression"
     assert not hasattr(layout, "polygon")
+    assert not isinstance(layout, FragmentOutlineRevision)
     assert log.runs == ()
+    stored = bytes(compressed)
+    value_at = TIFF_WIDTH_OFFSET + 3 * 12
+    assert stored[value_at : value_at + 2] == struct.pack("<H", 7)
 
     media = _segment(log, b"not-a-tiff")
     assert isinstance(media, UnsupportedMediaType)

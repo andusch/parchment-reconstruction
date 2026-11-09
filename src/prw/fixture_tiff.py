@@ -11,10 +11,12 @@ and photometric tag 262 is 1 (BlackIsZero).
 is ``1``. This module defines those strings, ``TIFF_MAGIC``, and the width
 and height offsets. The writer imports them.
 
-This reader is not an approved decoder for arbitrary scans. ``Q-ENG-05`` in
-``docs/OPEN_QUESTIONS.md`` stays open. Tags 282 and 283 are not read. A
-header resolution does not become ``pixels_per_mm``. A layout failure is a
-protocol result with no outline, no hypothesis, and no epistemic class.
+This reader is the synthetic layout only. Arbitrary lossless masters are
+``prw.lossless_tiff``, under ``docs/adr/0014-stdlib-lossless-tiff.md``.
+Tags 282 and 283 are not read. A header resolution does not become
+``pixels_per_mm``. A layout failure is a protocol result with no outline,
+no hypothesis, and no epistemic class. Pixel commands try the lossless
+decoder after this failure and do not surface it.
 """
 
 from __future__ import annotations

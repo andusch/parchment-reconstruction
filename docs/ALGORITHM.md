@@ -18,7 +18,7 @@ Stages run in order. A later stage consumes the records the earlier stage actual
 
 - **Inputs.** A source path and the stored SHA-256 and byte length, when a previous ingest stored them.
 - **Outputs.** A verified `SourceImage`, or an `IntegrityFailure`. No hypothesis.
-- **Failure.** On mismatch or unreadable bytes, stop for that file. Do not emit outlines, joins, or readings. The failure is an `IntegrityFailure`, not observed evidence. The bytes are not repaired in place. Ingest accepts lossless TIFF only. After ingest, the `originals/` copy is the byte source the later stages read. The decoder name and version go into the provenance envelope.
+- **Failure.** On mismatch or unreadable bytes, stop for that file. Do not emit outlines, joins, or readings. The failure is an `IntegrityFailure`, not observed evidence. The bytes are not repaired in place. `prw verify` accepts classic TIFF magic. A pixel command refuses a compression that is not lossless, and that refusal is not an outline. After ingest, the `originals/` copy is the byte source the later stages read. The decoder name and version go into the provenance envelope.
 
 
 
