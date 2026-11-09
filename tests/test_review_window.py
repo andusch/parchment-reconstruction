@@ -84,9 +84,11 @@ def main() -> int:
         "pixmap_width": pixmap.width(),
         "pixmap_height": pixmap.height(),
     }
-    print(json.dumps(report))
-    # Offscreen Qt can segfault while the process tears the platform plugin down
-    # after a successful paint. The report is already on stdout.
+    print(json.dumps(report), flush=True)
+    # Offscreen Qt can segfault while the process tears the platform plugin down.
+    # os._exit skips the normal flush, and a pipe is block-buffered, so the
+    # report has to be flushed before that exit or CI reads an empty stdout.
+    sys.stdout.flush()
     os._exit(0)
 
 
