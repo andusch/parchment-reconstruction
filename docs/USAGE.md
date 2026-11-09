@@ -4,7 +4,7 @@ This guide runs the commands that exist in version `0.0.0`. The headless console
 
 Terms are defined in the [glossary](DATA_MODEL.md#glossary). A ranked row is a hypothesis. The first row is the highest score in that list.
 
-Work on a synthetic leaf in a disposable directory outside the checkout. Real scans stay out of Git. See [Security and privacy](SECURITY_AND_PRIVACY.md). A public image from [Public-corpus pilot](pilot-public-corpus.md) also stays outside the checkout. Its directory, checksum, and scale note are [Public import path](pilot-import-path.md). A classic lossless TIFF that is not the synthetic fixture layout can be passed to `segment` and `rank`; the layouts those commands still refuse are in that note. One worked publisher TIFF is [First public-leaf run](pilot-first-run.md). This guide keeps using a synthetic leaf.
+Work on a synthetic leaf in a disposable directory outside the checkout. Real scans stay out of Git. See [Security and privacy](SECURITY_AND_PRIVACY.md). A public image from [Public-corpus pilot](pilot-public-corpus.md) also stays outside the checkout. Its directory, checksum, and scale note are [Public import path](pilot-import-path.md). A classic lossless TIFF that is not the synthetic fixture layout can be passed to `segment` and `rank`; the layouts those commands still refuse are in that note. One worked publisher TIFF is [First public-leaf run](pilot-first-run.md). The synthetic pair that ranks a list of join hypotheses, and the `prw-review` flags for that pair, are [Multi-fragment pool](pilot-multi-fragment-pool.md). This guide keeps using a synthetic leaf.
 
 ## Before you start
 
@@ -222,6 +222,8 @@ uv run prw rank \
 
 Exit `0`. `record` is `physical_join_order`. This leaf and this pair print 32 joins. Each `score` is less than or equal to the previous score. Every `epistemic_class` is `hypothesis`. Every `channel` is `physical`. `envelope.algorithm_name` is `pairwise_rigid_join`. The envelope omits `random_seed`. The first row is the highest physical score in this list. It is a hypothesis.
 
+The pair is the first and third fragment names in sorted order. With lighting variation `0` the other two files repeat those two rasters. Ranking both copies of one raster exits `2`. The hashes and the review flags are [Multi-fragment pool](pilot-multi-fragment-pool.md).
+
 `$BENCHMARKS/labels.json` is byte-identical to the file `generate` wrote.
 
 Omit the scale pair and the process exits `1` with `record` `FailedPairwiseJoin` and `status` `failed`. That object has no `joins` key. Passing the label file as an image exits `2`, prints no JSON, and writes `A BenchmarkLabel join file is not a rank path.` on stderr:
@@ -411,7 +413,7 @@ uv run prw-review \
 
 The window needs a display. The list labels every row `hypothesis`, including rank 1. The sketch draws the two outlines in fragment-local millimetres. It does not draw the TIFF. Reject, Keep as hypothesis, and Defer append a validation decision. The other rows stay. Reject sets the status `rejected-via-ValidationDecision` and does not change the join's epistemic class. Keep and Defer do not change that class or the status.
 
-`Load synthetic pair` writes a disposable leaf under a temporary directory outside the checkout and ranks two of its fragment files. It does not read `benchmarks/labels.json`.
+`Load synthetic pair` writes a disposable leaf under a temporary directory outside the checkout and ranks the first and third sorted fragment files, the same pair as section 7. It does not read `benchmarks/labels.json`. The worked transcript is [Multi-fragment pool](pilot-multi-fragment-pool.md).
 
 The rank call runs off the UI thread, one call at a time. Closing the window waits for that call. There is no cancellation. A worker process is still [Q-ENG-06](OPEN_QUESTIONS.md#q-eng-06). The actor string is `local-operator`. The window does not ask for a person's name, and it does not write a project directory.
 

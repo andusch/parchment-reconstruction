@@ -63,4 +63,4 @@ After these commands the file length and `sha256:d2468d256da131d82def5b5a9931c47
 
 ## What stays open
 
-[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. This run does not reopen [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05).
+[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. This run does not reopen [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05). A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses.
