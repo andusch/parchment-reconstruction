@@ -4,7 +4,7 @@ This guide runs the commands that exist in version `0.0.0`. The program is the h
 
 Terms are defined in the [glossary](DATA_MODEL.md#glossary). A ranked row is a hypothesis. The first row is the highest score in that list.
 
-Work on a synthetic leaf in a disposable directory outside the checkout. Real scans stay out of Git. See [Security and privacy](SECURITY_AND_PRIVACY.md). A public image, when its license is one of the three sources in [Public-corpus pilot](pilot-public-corpus.md), uses the same kind of outside directory.
+Work on a synthetic leaf in a disposable directory outside the checkout. Real scans stay out of Git. See [Security and privacy](SECURITY_AND_PRIVACY.md). A public image from [Public-corpus pilot](pilot-public-corpus.md) also stays outside the checkout. Its directory, checksum, and scale note are [Public import path](pilot-import-path.md). This guide keeps using a synthetic leaf.
 
 ## Before you start
 

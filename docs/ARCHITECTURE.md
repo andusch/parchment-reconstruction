@@ -160,7 +160,7 @@ Which TIFF and image libraries are allowed, including license?
 Source images are lossless TIFF. Reading them without rewriting bytes is an ingest requirement.
 
 - Options: the Python standard library where it is sufficient; a documented TIFF library chosen with its license at implementation time.
-- Blocks: P1 image ingest. P0 does not select a library.
+- Blocks: P1 image ingest. P0 does not select a library. The commands this checkout already runs, and the layouts they still refuse, are listed in [pilot-import-path.md](pilot-import-path.md). That note does not close this question.
 
 ### Q-ENG-06
 

@@ -17,7 +17,7 @@ Re-read the terms URL on the day of download. If that page no longer states the 
 
 ## Where the files live
 
-Keep the directory outside the checkout. [Using the workbench](USAGE.md) uses the same pattern for synthetic leaves. A path inside the repository, including `data/`, `scans/`, and `real_data/`, is the wrong place. [`.gitignore`](../.gitignore) ignores `*.tif` and `*.tiff`. That exclusion is not permission to force-add a file. [Security and privacy](SECURITY_AND_PRIVACY.md) treats an accidental commit as a standing risk.
+Keep the directory outside the checkout. [Using the workbench](USAGE.md) uses the same pattern for synthetic leaves. The durable directory, the `prw verify` sequence, and the scale lines are [Public import path](pilot-import-path.md). The `$TMPDIR` path below is a one-session checksum. A path inside the repository, including `data/`, `scans/`, and `real_data/`, is the wrong place. [`.gitignore`](../.gitignore) ignores `*.tif` and `*.tiff`. That exclusion is not permission to force-add a file. [Security and privacy](SECURITY_AND_PRIVACY.md) treats an accidental commit as a standing risk.
 
 ```bash
 PILOT="${TMPDIR:-/tmp}/prw-pilot-corpus"
@@ -86,4 +86,4 @@ The fixture reader used by pixel commands accepts only the synthetic uncompresse
 
 ## What stays open
 
-[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) is answered only for this candidate set, and only as a license posture for local storage and checksums. An accuracy claim on real manuscripts stays blocked. Synthetic tears remain the in-repository corpus. Any further source needs its own reading of that source's terms page.
+[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) is answered only for this candidate set, and only as a license posture for local storage and checksums. An accuracy claim on real manuscripts stays blocked. Synthetic tears remain the in-repository corpus. Any further source needs its own reading of that source's terms page. Operator steps for one downloaded file are [Public import path](pilot-import-path.md). [Q-ENG-05](OPEN_QUESTIONS.md#q-eng-05) stays open.
