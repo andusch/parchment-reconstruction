@@ -10,6 +10,7 @@ from prw.provenance import (
     AlgorithmRun,
     AssemblyContent,
     ProvenanceEnvelope,
+    StatusEvent,
     StatusStream,
     insert_hypothesis,
 )
@@ -192,4 +193,29 @@ def test_first_event_is_proposed_unless_the_write_is_a_machine_rejection() -> No
             status="contested",
             recorded_at=_RECORDED,
             actor="run",
+        )
+
+
+def test_replay_continues_a_log_and_refuses_a_late_first_event() -> None:
+    target = uuid.uuid4()
+    proposed = StatusEvent(
+        id=uuid.uuid4(),
+        target_id=target,
+        status="proposed",
+        recorded_at=_RECORDED,
+        actor="run",
+    )
+    stream = StatusStream()
+    stream.replay(proposed)
+    assert stream.current_status(target) == "proposed"
+    assert stream.events[-1].id == proposed.id
+    with pytest.raises(ValueError, match="first status event"):
+        stream.replay(
+            StatusEvent(
+                id=uuid.uuid4(),
+                target_id=uuid.uuid4(),
+                status="rejected-via-ValidationDecision",
+                recorded_at=_RECORDED,
+                actor="local-operator",
+            )
         )

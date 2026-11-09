@@ -30,7 +30,7 @@ flowchart LR
   usecases --> adapters
 ```
 
-- **Qt shell.** Presents hypotheses, epistemic class, and text status. It shows rank inside one hypothesis type and one channel. It never displays a cross-type total order. It does not run detection, search, or HTR on the UI thread. [ADR-0005](adr/0005-qt-shell-and-headless-core.md).
+- **Qt shell.** Presents hypotheses, epistemic class, and text status. It shows rank inside one hypothesis type and one channel. It never displays a cross-type total order. It does not run detection, search, or HTR on the UI thread. [ADR-0005](adr/0005-qt-shell-and-headless-core.md). The Pilot-05 window shows ranked joins only. Readings, assemblies, and a worker process remain P7. [ADR-0015](adr/0015-thin-review-window.md).
 - **Headless CLI.** Calls the same use cases as the shell. Benchmarks and ingest can run without Qt.
 - **Local workers.** Run expensive use cases off the UI thread. Thread versus process is [Q-ENG-06](#q-eng-06).
 - **Use cases.** Import, verify, detect, rank joins, assemble, recognize text, score language, record decisions, and export.
@@ -89,7 +89,7 @@ The Qt UI thread paints, routes input, and displays progress. Detection, join se
 
 ## Dependency and license gate
 
-A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. Geometry and HTR runtimes are inside [Q-ENG-03](#q-eng-03) and [Q-ENG-04](#q-eng-04). TIFF reading uses the Python standard library, as closed by [Q-ENG-05](#q-eng-05). P0 adds no dependencies.
+A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. Geometry and HTR runtimes are inside [Q-ENG-03](#q-eng-03) and [Q-ENG-04](#q-eng-04). TIFF reading uses the Python standard library, as closed by [Q-ENG-05](#q-eng-05). P0 adds no dependencies. The review window adds PySide6-Essentials in the `ui` group. Its reason and license are [ADR-0015](adr/0015-thin-review-window.md). `project.dependencies` stays empty, and the headless console does not import that binding.
 
 ## Error policy
 
@@ -115,6 +115,8 @@ A runtime dependency is added only with a documented reason and license, and onl
 | Frame conventions | [0011](adr/0011-frame-conventions.md) | Accepted |
 | Export types | [0012](adr/0012-export-types.md) | Accepted |
 | Human outline correction | [0013](adr/0013-human-outline-correction.md) | Accepted |
+| Standard-library lossless TIFF | [0014](adr/0014-stdlib-lossless-tiff.md) | Accepted |
+| Thin review window | [0015](adr/0015-thin-review-window.md) | Accepted |
 
 ## Open questions
 
@@ -125,7 +127,7 @@ Content-addressed files, SQLite, or both?
 The store is the project format. Changing it later requires a migration and stop-and-ask.
 
 - Options: a directory of content-addressed files plus JSON records; a single SQLite database with originals stored as files beside it; SQLite for records and content-addressed files for originals, which is the layout sketched above.
-- Blocks: accepting a project format. P1 may implement a store only after this question is closed, or must keep the implementation behind a decision that answers it.
+- Blocks: accepting a project format. P1 may implement a store only after this question is closed, or must keep the implementation behind a decision that answers it. Pilot-05 keeps the review session in memory and writes no project directory. This question stays open.
 
 ### Q-ENG-02
 
@@ -168,4 +170,4 @@ Worker thread or worker process for expensive jobs?
 [ADR-0005](adr/0005-qt-shell-and-headless-core.md) requires work off the UI thread. It does not choose the isolation mechanism. A process crash can leave the shell up. A thread shares memory and needs a stricter cancellation story.
 
 - Options: a worker thread; a worker process that calls the same use-case entry points as the CLI; either, chosen per job class.
-- Blocks: P7 worker implementation. P1 CLI work can run in the foreground process.
+- Blocks: P7 worker implementation. P1 CLI work can run in the foreground process. Pilot-05 runs one rank on a Qt thread inside the review window and does not choose thread versus process for P7. This question stays open. See [ADR-0015](adr/0015-thin-review-window.md).

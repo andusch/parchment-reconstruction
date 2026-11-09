@@ -514,11 +514,6 @@ class StatusStream:
 
         The first event for a target is ``proposed`` or ``rejected``.
         """
-        if self.current_status(target_id) is None and status not in _INITIAL_STATUSES:
-            raise ValueError(
-                "The first status event is proposed, or rejected "
-                "for a machine rejection."
-            )
         event = StatusEvent(
             id=uuid.uuid4(),
             target_id=target_id,
@@ -526,6 +521,24 @@ class StatusStream:
             recorded_at=recorded_at,
             actor=actor,
         )
+        return self.replay(event)
+
+    def replay(self, event: StatusEvent) -> StatusEvent:
+        """Append an event that already has an id.
+
+        A later writer uses this to continue a log another use case started.
+        The first event for a target is still ``proposed`` or ``rejected``.
+        """
+        if not isinstance(event, StatusEvent):
+            raise TypeError("A status log stores a StatusEvent.")
+        if (
+            self.current_status(event.target_id) is None
+            and event.status not in _INITIAL_STATUSES
+        ):
+            raise ValueError(
+                "The first status event is proposed, or rejected "
+                "for a machine rejection."
+            )
         self._events.append(event)
         return event
 

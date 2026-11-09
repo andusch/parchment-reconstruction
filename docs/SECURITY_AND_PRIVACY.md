@@ -53,7 +53,7 @@ Should the app warn when the project directory is inside a cloud-sync folder?
 A warning can prevent an accidental upload. Detecting sync roots is platform-specific and can be wrong.
 
 - Options: warn when the path is under a known sync root; document the risk and do not detect it; refuse to create a project in a detected sync root.
-- Blocks: a P7 warning or refusal. The risk stands in P0 as an operator responsibility.
+- Blocks: a P7 warning or refusal. The risk stands in P0 as an operator responsibility. Pilot-05 writes no project directory and does not detect a sync folder. This question stays open.
 
 ### Q-PRI-02
 

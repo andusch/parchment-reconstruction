@@ -8,6 +8,7 @@ dependencies = []
 
 [project.scripts]
 prw = "prw.cli:main"
+prw-review = "prw.review_window:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -23,6 +24,12 @@ dev = [
     "pytest",
     "ruff",
 ]
+ui = [
+    "PySide6-Essentials>=6.8",
+]
+
+[tool.uv]
+default-groups = ["dev", "ui"]
 
 [tool.ruff]
 target-version = "py312"
