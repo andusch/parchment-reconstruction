@@ -11,7 +11,7 @@ The operator downloads these files in a browser or another client of their own. 
 
 ## Scope
 
-The pilot is physical imagery. A museum catalogue title, culture, geography, script, or transcription stays on the institution's page. This note does not import that text as observed evidence, as a reading, or as a find-site. Ancient Greek hand-transcription, Black Sea or any other site identity, and local HTR stay out of scope. P5 remains blocked by [Q-SCI-14](OPEN_QUESTIONS.md#q-sci-14).
+The pilot is physical imagery. A museum catalogue title, culture, geography, script, or transcription stays on the institution's page. This note does not import that text as observed evidence, as a reading, or as a find-site. Ancient Greek hand-transcription, Black Sea or any other site identity, and local HTR stay out of scope for this pilot. The model choice is [ADR-0010](adr/0010-local-greek-htr-runtime.md). This note does not implement it and does not fetch weights.
 
 Re-read the terms URL on the day of download. If that page no longer states the license recorded here, leave the file out of the pilot.
 

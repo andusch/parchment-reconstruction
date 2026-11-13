@@ -1,7 +1,7 @@
 # Product requirements
 
 - Status: Draft for review
-- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, and a thin review window for ranked joins. P5 HTR is hard-blocked. The later end-state below is not shipped.
+- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, and a thin review window for ranked joins. P5 HTR is not implemented. Q-SCI-04, Q-SCI-14, and Q-ENG-03 no longer hard-block it. The later end-state below is not shipped.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Open-question index: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)
 

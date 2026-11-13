@@ -118,11 +118,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-04
 
+- **Status.** Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md).
 - **Owning document.** [ALGORITHM.md](ALGORITHM.md#q-sci-04)
-- **Question.** Which Greek hands and periods are in scope, and how are nomina sacra, abbreviations, and mixed-script pages stored?
-- **Why it matters.** Storage is already decided: readings carry `script` and `language`, stored text is Unicode NFC, and comparison may strip accents and normalize final sigma. Storage never does those steps. A page is never forced through a Greek-only reading. HTR and language scoring are only meaningful inside a declared corpus of hands and conventions. The full ADR is Phase 5.
-- **Options.** A named subset chosen before P5; all polytonic Greek in one model; separate models for majuscule and minuscule. Separately, for nomina sacra, abbreviations, and mixed-script pages: record them under their own script or language tag and leave them unscored; or defer a representation until the Phase 5 ADR.
-- **Blocks.** P5 model choice, and any scoring that would expand abbreviations or flatten nomina sacra.
+- **Decision.** One model covers all polytonic Greek. Separate majuscule and minuscule models are not used. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. Storage is unchanged. A reading carries `script` and `language`. Stored text is Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does those stripping steps. PP-OCRv6 medium emits Unicode NFD. An implementation normalizes that output to NFC before storage. That step is an adapter. It is not a change to the storage rule, and this close-out does not implement it. The PP-OCR card does not say "polytonic" and does not claim majuscule, papyrus, or inscription coverage. The product scope remains one model for all polytonic Greek, and this is the chosen model.
+- **Blocks.** Nothing further for the hand scope or for storing those pages. Scoring that expands abbreviations or flattens nomina sacra stays out. [Q-SCI-16](EVALUATION.md#q-sci-16) still blocks a character-error number.
 
 ### Q-SCI-05
 
@@ -196,11 +195,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-14
 
+- **Status.** Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md).
 - **Owning document.** [ALGORITHM.md](ALGORITHM.md#q-sci-14)
-- **Question.** Which local HTR model, license, and weight hash are required, and is a download ever allowed?
-- **Why it matters.** Weights are code-like, licensed, and large. A downloader is a network call.
-- **Options.** A named local model, reviewed license, and a recorded weight hash, with weights provided from a local path; no model in the first releases; a download only after a separate implementation approval.
-- **Blocks.** P5. P0 approves no model, no weight file, and no download. See [ADR-0010](adr/0010-local-greek-htr-runtime.md).
+- **Decision.** The model is PP-OCRv6 medium, file `medium.safetensors`, by Benjamin Kiessling, ALMAnaCH, Inria Paris, published 4 August 2026, v1. The canonical record is <https://zenodo.org/records/21788410> and <https://doi.org/10.5281/zenodo.21788410> (`10.5281/zenodo.21788410`). An unofficial Hub mirror is not canonical. The license is Apache License 2.0 (<https://www.apache.org/licenses/LICENSE-2.0>). Attribution and notices are required. Some training datasets are private and not redistributable. That does not change the Apache-2.0 grant on the published weights. Zenodo does not publish a SHA-256 for `medium.safetensors`. This record does not supply one. The Zenodo MD5 is `e3411a453ce3b9e9efae3f8631d85762`. That MD5 is not a provenance `model_hash`. The record states 63.8 MB. Official use on the card is Kraken >= 7.1.0, `ocr -m medium.safetensors`. Ancient Greek training sources listed on the card are EPARCHOS, HPGTR, HTR_CPgr23 (Palatinus graecus 23), and Stavronikita Monastery collections 53, 79, and 114, plus private datasets and synthetic augmentation. The card cites Ancient Greek CER 7.21% and WER 44.03% on 451 lines, greedy CTC, NFD and whitespace. Those figures are the card's. Weights are supplied from a local path in the default process. A network download is allowed only after a later, separate implementation approval. [ADR-0001](adr/0001-local-only-processing.md) stays in force. This close-out does not fetch the file and does not add it to Git. The model was chosen because it is the licensed multi-corpus Ancient Greek handwriting model. Licensed alternatives that were found are also Kraken models. The only native `.pt` candidate found had no license on its model card.
+- **Blocks.** Nothing further for the named model, its license, or the local-path rule. A download remains a separate implementation approval. [Q-SCI-16](EVALUATION.md#q-sci-16) still blocks a character-error number.
 
 ### Q-SCI-15
 
@@ -217,7 +215,7 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 - **Question.** What abbreviation policy applies to character error rate?
 - **Why it matters.** Storage is Unicode NFC. Comparison and matching may strip accents and normalize final sigma, and storage never does. Abbreviations still change the character count. A policy chosen after scoring changes the metric.
 - **Options.** Abbreviations scored as written; abbreviations expanded before scoring; a written policy that freezes one of these before the first reportable run.
-- **Blocks.** Reporting character error rate. P5 writes no character-error number until the abbreviation policy is frozen. NFC storage does not by itself make the number reportable.
+- **Blocks.** Reporting character error rate. P5 writes no character-error number until the abbreviation policy is frozen. NFC storage does not by itself make the number reportable. [ADR-0010](adr/0010-local-greek-htr-runtime.md) records the model card's cited Ancient Greek figures and leaves this question open.
 
 ### Q-SCI-17
 
@@ -296,11 +294,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-ENG-03
 
+- **Status.** Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md).
 - **Owning document.** [ARCHITECTURE.md](ARCHITECTURE.md#q-eng-03)
-- **Question.** HTR runtime: ONNX Runtime, PyTorch, or an external local binary?
-- **Why it matters.** The runtime is a dependency with a license, a distribution size, and a possible network installer. No runtime is approved.
-- **Options.** ONNX Runtime; PyTorch; an external local binary invoked without a network call; defer HTR until P5.
-- **Blocks.** P5, together with [Q-SCI-14](ALGORITHM.md#q-sci-14). See [ADR-0010](adr/0010-local-greek-htr-runtime.md).
+- **Decision.** The product-facing HTR runtime is Kraken >= 7.1.0. This supersedes an earlier lean toward PyTorch with local weights. Kraken uses PyTorch underneath. A first-party `torch.load` trainer is not the runtime. Weights are the local file `medium.safetensors` (PP-OCRv6 medium). The default process does not download them. Kraken is not a dependency of this checkout. Adding the package, wiring a recognizer command, and any weight download are later tickets and need their own approval. The Kraken package license is recorded on the ticket that adds the dependency. The weight license is Apache-2.0, recorded in the ADR. The model was chosen because it is the licensed multi-corpus Ancient Greek handwriting model. Licensed alternatives that were found are also Kraken models. The only native `.pt` candidate found had no license on its model card.
+- **Blocks.** Nothing further for the runtime choice. P5 is not implemented. A character-error number stays [Q-SCI-16](EVALUATION.md#q-sci-16).
 
 ### Q-ENG-04
 

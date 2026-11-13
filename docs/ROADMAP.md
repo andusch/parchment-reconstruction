@@ -1,12 +1,12 @@
 # Roadmap
 
 - Status: Draft for review
-- Phase: P4 commands are in the tree. P5 is hard-blocked.
+- Phase: P4 commands are in the tree. P5 HTR is not implemented. Q-SCI-04, Q-SCI-14, and Q-ENG-03 no longer hard-block it.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 Phases are ordered by dependency. This document sets no dates. From P1 onward, a phase that changes a stored schema includes a migration and migration tests. A phase that changes an algorithm includes a benchmark comparison, as defined in [EVALUATION.md](EVALUATION.md).
 
-P0, P1, P2, and P3 tickets are Done. P4 tickets are Done. Assembly search, assembly rank, placement error, and end-to-end join presence are headless commands. P5 HTR remains hard-blocked. P6, P7, and P8 stay later. The thin join-review window recorded under P7 does not meet that phase's exit criteria. A language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. They are not in this tree.
+P0, P1, P2, and P3 tickets are Done. P4 tickets are Done. Assembly search, assembly rank, placement error, and end-to-end join presence are headless commands. P5 HTR is not implemented. [ADR-0010](adr/0010-local-greek-htr-runtime.md) accepts Kraken >= 7.1.0 and local PP-OCRv6 medium weights, and it closes [Q-SCI-04](ALGORITHM.md#q-sci-04), [Q-SCI-14](ALGORITHM.md#q-sci-14), and [Q-ENG-03](ARCHITECTURE.md#q-eng-03). Adding Kraken as a package dependency, wiring a recognizer command, and any weight download are later tickets and need their own approval. [Q-SCI-16](EVALUATION.md#q-sci-16) still blocks a character-error number. P6, P7, and P8 stay later. The thin join-review window recorded under P7 does not meet that phase's exit criteria. A language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. They are not in this tree.
 
 Closing a question that touches public APIs, project format, privacy policy, or evidence semantics requires an ADR and an explicit decision. See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
 
@@ -92,7 +92,9 @@ Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) 
 
 **Non-goals.** Renaming `ocr_inferred`. Treating model scores as probabilities. A network fetch of weights.
 
-**Blocked by.** [Q-SCI-04](ALGORITHM.md#q-sci-04), [Q-SCI-14](ALGORITHM.md#q-sci-14), and an approved dependency under [Q-ENG-03](ARCHITECTURE.md#q-eng-03). The Greek storage rules are already recorded; the full ADR is this phase. [Q-SCI-16](EVALUATION.md#q-sci-16) blocks a character-error number. [Q-SCI-06](DATA_MODEL.md#q-sci-06) blocks a show-through representation. [Q-SCI-13](DATA_MODEL.md#q-sci-13) blocks emitting lacunae as a finer status.
+**Blocked by.** Nothing in [Q-SCI-04](ALGORITHM.md#q-sci-04), [Q-SCI-14](ALGORITHM.md#q-sci-14), or [Q-ENG-03](ARCHITECTURE.md#q-eng-03). Those three are closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md). That close-out does not implement HTR. Adding Kraken as a package dependency, wiring a recognizer command, and any weight download are later tickets and need their own approval. The default process still does not download weights ([ADR-0001](adr/0001-local-only-processing.md)). The Greek storage rules are unchanged. The chosen model emits Unicode NFD. An implementation normalizes that output to NFC before storage. That adapter is not in this tree. [Q-SCI-16](EVALUATION.md#q-sci-16) blocks a character-error number. [Q-SCI-06](DATA_MODEL.md#q-sci-06) blocks a show-through representation. [Q-SCI-13](DATA_MODEL.md#q-sci-13) blocks emitting lacunae as a finer status.
+
+Ticket [P5-01](../tasks/P5-01.md) is Done. It records the decision. It does not add a recognizer.
 
 ## P6
 

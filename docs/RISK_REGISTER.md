@@ -67,8 +67,8 @@ Each entry is open. P0 mitigations are documentary. Residual risk stays until a 
 - **Class.** Privacy and engineering
 - **What can go wrong.** HTR weights are licensed incompatibly, or the runtime calls the network.
 - **Consequence.** Redistribution violates a license, or unpublished context leaves the machine.
-- **Current mitigation.** [ADR-0010](adr/0010-local-greek-htr-runtime.md) is blocked. No model and no download are approved. [Q-SCI-14](ALGORITHM.md#q-sci-14) and [Q-ENG-03](ARCHITECTURE.md#q-eng-03) stay open.
-- **Residual status.** Open.
+- **Current mitigation.** [ADR-0010](adr/0010-local-greek-htr-runtime.md) is accepted. The runtime is Kraken >= 7.1.0. The weights are PP-OCRv6 medium, file `medium.safetensors`, Apache-2.0, read from a local path. The default process does not download them. [Q-SCI-14](ALGORITHM.md#q-sci-14) and [Q-ENG-03](ARCHITECTURE.md#q-eng-03) are closed. This checkout does not depend on Kraken, and the weight file is not in Git.
+- **Residual status.** Open. A later change could add a downloader or drop the Apache-2.0 notices. Private training datasets named on the model card are not redistributable.
 
 ## R-09
 

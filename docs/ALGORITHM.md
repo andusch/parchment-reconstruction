@@ -80,7 +80,7 @@ Page size is [Q-SCI-02](#q-sci-02). Gaps, shrinkage, and cockling are [Q-SCI-03]
 - **Outputs.** `ReadingHypothesis` and `GraphemeHypothesis` rows with text status `ocr_inferred`, epistemic class `interpretation`, producer `machine`, script and language tags, text stored in Unicode NFC, and an `htr` score channel.
 - **Failure.** A missing model, a license block, or a runtime error fails the HTR stage for that run. Physical hypotheses remain. The stage does not call a network.
 
-Script, period, and abbreviation scope are [Q-SCI-04](#q-sci-04). The model, its license, its weight hash, and any download are [Q-SCI-14](#q-sci-14). No model is approved in P0. Show-through is [Q-SCI-06](DATA_MODEL.md#q-sci-06).
+Script and abbreviation scope are [Q-SCI-04](#q-sci-04), closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md). The model, its license, the published checksum, and the download rule are [Q-SCI-14](#q-sci-14), closed by the same ADR. The runtime is [Q-ENG-03](ARCHITECTURE.md#q-eng-03). This stage is not implemented. The named model emits Unicode NFD. An implementation normalizes that output to NFC before storage. That step is an adapter. It does not change the storage rule. Show-through is [Q-SCI-06](DATA_MODEL.md#q-sci-06). A character-error number waits on [Q-SCI-16](EVALUATION.md#q-sci-16).
 
 ### 9. Score language
 
@@ -118,7 +118,7 @@ These modes are expected limits of the proposal. They are not solved in P0.
 - **Bleed-through.** Ink from the other face is read as text on this face.
 - **Warping.** Cockled or shrunken parchment violates a rigid placement.
 - **Fragments from another leaf.** The pool can contain pieces that do not belong on the hypothesized page.
-- **Script mismatch.** An HTR model for a different hand or period emits `ocr_inferred` text. That text stays `interpretation`. It is not the original reading.
+- **Script mismatch.** An HTR model for a different hand or period emits `ocr_inferred` text. That text stays `interpretation`. It is not the original reading. [ADR-0010](adr/0010-local-greek-htr-runtime.md) chooses one model for all polytonic Greek. The model card does not claim majuscule, papyrus, or inscription coverage.
 - **A wrong top rank.** The highest score can be the wrong join or the wrong reading. Rank is not truth.
 
 
@@ -164,10 +164,9 @@ Real parchment often fails to meet in a rigid plane.
 
 Which Greek hands and periods are in scope, and how are nomina sacra, abbreviations, and mixed-script pages stored?
 
-Storage is already decided. Readings carry `script` and `language`. Stored text is Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does those steps. A page is never forced through a Greek-only reading. The full Greek-policy ADR is Phase 5. HTR and language scoring are only meaningful inside a declared corpus of hands and conventions.
+Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md). One model covers all polytonic Greek. Separate majuscule and minuscule models are not used. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. Storage is unchanged. A reading carries `script` and `language`. Stored text is Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does those stripping steps. PP-OCRv6 medium emits Unicode NFD. An implementation normalizes that output to NFC before storage. That step is an adapter. It is not a change to the storage rule, and this close-out does not implement it. The PP-OCR card does not say "polytonic" and does not claim majuscule, papyrus, or inscription coverage. The product scope remains one model for all polytonic Greek, and this is the chosen model.
 
-- Options: a named subset chosen before P5; all polytonic Greek in one model; separate models for majuscule and minuscule. Separately, for nomina sacra, abbreviations, and mixed-script pages: record them under their own script or language tag and leave them unscored; or defer a representation until the Phase 5 ADR.
-- Blocks: P5 model choice, and any scoring that would expand abbreviations or flatten nomina sacra.
+- Blocks: nothing further for the hand scope or for storing those pages. Scoring that expands abbreviations or flattens nomina sacra stays out. [Q-SCI-16](EVALUATION.md#q-sci-16) still blocks a character-error number.
 
 
 
@@ -219,10 +218,9 @@ A single sort key can hide a strong physical join with a weak language score, or
 
 Which local HTR model, license, and weight hash are required, and is a download ever allowed?
 
-Weights are code-like, licensed, and large. A downloader is a network call.
+Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md). The model is PP-OCRv6 medium, file `medium.safetensors`, by Benjamin Kiessling, ALMAnaCH, Inria Paris, published 4 August 2026, v1. The canonical record is <https://zenodo.org/records/21788410> and <https://doi.org/10.5281/zenodo.21788410> (`10.5281/zenodo.21788410`). An unofficial Hub mirror is not canonical. The license is Apache License 2.0 (<https://www.apache.org/licenses/LICENSE-2.0>). Attribution and notices are required. Some training datasets are private and not redistributable. That does not change the Apache-2.0 grant on the published weights. Zenodo does not publish a SHA-256 for `medium.safetensors`. This record does not supply one. The Zenodo MD5 is `e3411a453ce3b9e9efae3f8631d85762`. That MD5 is not a provenance `model_hash`. The record states 63.8 MB. Official use on the card is Kraken >= 7.1.0, `ocr -m medium.safetensors`. Ancient Greek training sources listed on the card are EPARCHOS, HPGTR, HTR_CPgr23 (Palatinus graecus 23), and Stavronikita Monastery collections 53, 79, and 114, plus private datasets and synthetic augmentation. The card cites Ancient Greek CER 7.21% and WER 44.03% on 451 lines, greedy CTC, NFD and whitespace. Those figures are the card's. Weights are supplied from a local path in the default process. A network download is allowed only after a later, separate implementation approval. [ADR-0001](adr/0001-local-only-processing.md) stays in force. This close-out does not fetch the file and does not add it to Git. The model was chosen because it is the licensed multi-corpus Ancient Greek handwriting model. Licensed alternatives that were found are also Kraken models. The only native `.pt` candidate found had no license on its model card.
 
-- Options: a named local model, reviewed license, and a recorded weight hash, with weights provided from a local path; no model in the first releases; a download only after a separate implementation approval.
-- Blocks: P5. P0 approves no model, no weight file, and no download. See [ADR-0010](adr/0010-local-greek-htr-runtime.md).
+- Blocks: nothing further for the named model, its license, or the local-path rule. A download remains a separate implementation approval. [Q-SCI-16](EVALUATION.md#q-sci-16) still blocks a character-error number.
 
 
 

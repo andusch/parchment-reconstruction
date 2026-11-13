@@ -11,7 +11,7 @@ The workbench is a local desktop application. Scholars import scans, inspect ran
 
 ## Non-goals
 
-P0 does not choose a persistence engine, an HTR runtime, or a geometry library. Those choices are [Q-ENG-01](#q-eng-01), [Q-ENG-03](#q-eng-03), and [Q-ENG-04](#q-eng-04). The TIFF reader is [Q-ENG-05](#q-eng-05), closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md). Packaging is [Q-ENG-02](#q-eng-02), closed by [P1-01](../tasks/P1-01.md). The default process has no network client. See [ADR-0001](adr/0001-local-only-processing.md).
+P0 does not choose a persistence engine or a geometry library. Those choices are [Q-ENG-01](#q-eng-01) and [Q-ENG-04](#q-eng-04). The HTR runtime is [Q-ENG-03](#q-eng-03), closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md). That acceptance does not add Kraken to this checkout. The TIFF reader is [Q-ENG-05](#q-eng-05), closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md). Packaging is [Q-ENG-02](#q-eng-02), closed by [P1-01](../tasks/P1-01.md). The default process has no network client. See [ADR-0001](adr/0001-local-only-processing.md).
 
 ## Layering
 
@@ -35,7 +35,7 @@ flowchart LR
 - **Local workers.** Run expensive use cases off the UI thread. Thread versus process is [Q-ENG-06](#q-eng-06).
 - **Use cases.** Import, verify, detect, rank joins, assemble, recognize text, score language, record decisions, and export.
 - **Domain model.** Entities in [DATA_MODEL.md](DATA_MODEL.md). Hypothesis ranking and epistemic class live here.
-- **Local adapters.** Filesystem project store, image reading, and a future HTR runtime. Adapters do not open network connections unless a later approval says so.
+- **Local adapters.** Filesystem project store, image reading, and the HTR runtime named in [ADR-0010](adr/0010-local-greek-htr-runtime.md). That runtime is not wired. Adapters do not open network connections unless a later approval says so.
 
 ## Future package boundaries
 
@@ -89,7 +89,7 @@ The Qt UI thread paints, routes input, and displays progress. Detection, join se
 
 ## Dependency and license gate
 
-A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. Geometry and HTR runtimes are inside [Q-ENG-03](#q-eng-03) and [Q-ENG-04](#q-eng-04). TIFF reading uses the Python standard library, as closed by [Q-ENG-05](#q-eng-05). P0 adds no dependencies. The review window adds PySide6-Essentials in the `ui` group. Its reason and license are [ADR-0015](adr/0015-thin-review-window.md). `project.dependencies` stays empty, and the headless console does not import that binding.
+A runtime dependency is added only with a documented reason and license, and only after implementation approval when the dependency implies a network download or a privacy-policy change. The HTR runtime choice is [Q-ENG-03](#q-eng-03), closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md). Adding Kraken still needs its own dependency ticket, including the package license. Geometry remains [Q-ENG-04](#q-eng-04). TIFF reading uses the Python standard library, as closed by [Q-ENG-05](#q-eng-05). P0 adds no dependencies. The review window adds PySide6-Essentials in the `ui` group. Its reason and license are [ADR-0015](adr/0015-thin-review-window.md). `project.dependencies` stays empty, and the headless console does not import that binding.
 
 ## Error policy
 
@@ -111,7 +111,7 @@ A runtime dependency is added only with a documented reason and license, and onl
 | Project persistence | [0007](adr/0007-project-persistence.md) | Proposed |
 | Rigid rectangular page | [0008](adr/0008-rigid-rectangular-page.md) | Proposed |
 | Separate score channels | [0009](adr/0009-separate-score-channels.md) | Proposed |
-| Local Greek HTR runtime | [0010](adr/0010-local-greek-htr-runtime.md) | Proposed, blocked |
+| Local Greek HTR runtime | [0010](adr/0010-local-greek-htr-runtime.md) | Accepted |
 | Frame conventions | [0011](adr/0011-frame-conventions.md) | Accepted |
 | Export types | [0012](adr/0012-export-types.md) | Accepted |
 | Human outline correction | [0013](adr/0013-human-outline-correction.md) | Accepted |
@@ -141,10 +141,9 @@ Closed by [P1-01](../tasks/P1-01.md). No ADR: the question does not touch eviden
 
 HTR runtime: ONNX Runtime, PyTorch, or an external local binary?
 
-The runtime is a dependency with a license, a distribution size, and a possible network installer. No runtime is approved.
+Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md). The product-facing HTR runtime is Kraken >= 7.1.0. This supersedes an earlier lean toward PyTorch with local weights. Kraken uses PyTorch underneath. A first-party `torch.load` trainer is not the runtime. Weights are the local file `medium.safetensors` (PP-OCRv6 medium). The default process does not download them. Kraken is not a dependency of this checkout. Adding the package, wiring a recognizer command, and any weight download are later tickets and need their own approval. The Kraken package license is recorded on the ticket that adds the dependency. The weight license is Apache-2.0, recorded in the ADR. The model was chosen because it is the licensed multi-corpus Ancient Greek handwriting model. Licensed alternatives that were found are also Kraken models. The only native `.pt` candidate found had no license on its model card.
 
-- Options: ONNX Runtime; PyTorch; an external local binary invoked without a network call; defer HTR until P5.
-- Blocks: P5, together with [Q-SCI-14](adr/0010-local-greek-htr-runtime.md). See [ADR-0010](adr/0010-local-greek-htr-runtime.md).
+- Blocks: nothing further for the runtime choice. P5 is not implemented. A character-error number stays [Q-SCI-16](EVALUATION.md#q-sci-16).
 
 ### Q-ENG-04
 

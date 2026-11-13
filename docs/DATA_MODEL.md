@@ -72,9 +72,11 @@ flowchart TD
 
 ### Greek text storage
 
-Decided for storage now. The full Greek-policy ADR is deferred to Phase 5. What remains open is [Q-SCI-04](ALGORITHM.md#q-sci-04).
+Storage is unchanged. [Q-SCI-04](ALGORITHM.md#q-sci-04) is closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md).
 
-A reading carries `script` and `language` tags. Grapheme text and supplied restoration text are stored in Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does. Nomina sacra, abbreviations, and mixed-script pages are not forced through a Greek-only reading.
+A reading carries `script` and `language` tags. Grapheme text and supplied restoration text are stored in Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. They are not forced through a Greek-only reading.
+
+PP-OCRv6 medium emits Unicode NFD. An implementation normalizes that output to NFC before storage. That normalization is an adapter step in [ADR-0010](adr/0010-local-greek-htr-runtime.md). It does not change this storage rule, and this document does not implement it.
 
 ## Score channels
 
