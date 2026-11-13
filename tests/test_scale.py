@@ -5,6 +5,8 @@ import json
 import uuid
 from pathlib import Path
 
+import pytest
+
 import prw.scale as scale_module
 from prw.frames import (
     AXIS_X_RIGHT,
@@ -17,10 +19,13 @@ from prw.outlines import Fragment, FragmentOutlineRevision
 from prw.provenance import AlgorithmRun, ProvenanceEnvelope
 from prw.scale import (
     PIXEL_CENTER,
+    CalibrationObservation,
     CallerScale,
+    ClaimedResolution,
     ScaledOutline,
     ScaleLog,
     UnscaledOutline,
+    record_claimed_resolution,
 )
 from prw.segment import SegmentationLog, SegmentedOutline
 from prw.synthetic_tear import _uncompressed_grayscale_tiff
@@ -237,3 +242,54 @@ def test_segmented_outline_uses_the_caller_scale_not_a_header() -> None:
     assert scaled.observation.pixels_per_mm == 4
     source = Path(scale_module.__file__ or "").read_text()
     assert "MILLIMETRES_PER_PIXEL" not in source
+
+
+def test_claimed_resolution_is_not_a_calibration() -> None:
+    source_hash = hash_value(b"synthetic-source")
+    claimed = record_claimed_resolution(
+        400,
+        source_hashes=(source_hash,),
+        code_version="test-code",
+        decoder_name="lossless_tiff",
+        decoder_version="1",
+        recorded_at=_RECORDED,
+    )
+    assert isinstance(claimed, ClaimedResolution)
+    assert not isinstance(claimed, CalibrationObservation)
+    assert not hasattr(claimed, "pixels_per_mm")
+    assert claimed.claimed_resolution_ppi == 400.0
+    assert claimed.run.status == "completed"
+    assert claimed.run.attempt_id is None
+    envelope = claimed.run.provenance
+    assert envelope.algorithm_name == "claimed_resolution_scale"
+    assert envelope.algorithm_version == "1"
+    assert envelope.model_hash == "absent"
+    assert "random_seed" not in envelope.content_mapping()
+    assert json.loads(envelope.parameter_blob) == {
+        "claimed_resolution_ppi": 400.0,
+        "evidence_description": "claimed resolution",
+        "populates_calibration": False,
+    }
+    assert "25.4" not in envelope.parameter_blob
+    assert "pixels_per_mm" not in envelope.parameter_blob
+    repeated = record_claimed_resolution(
+        400.0,
+        source_hashes=(source_hash,),
+        code_version="test-code",
+        decoder_name="lossless_tiff",
+        decoder_version="1",
+        recorded_at="2024-06-01T12:00:00Z",
+    )
+    assert repeated.run.id == claimed.run.id
+
+
+def test_claimed_resolution_rejects_a_non_positive_claim() -> None:
+    with pytest.raises(ValueError, match="claimed_resolution_ppi"):
+        record_claimed_resolution(
+            0,
+            source_hashes=(hash_value(b"synthetic-source"),),
+            code_version="test-code",
+            decoder_name="lossless_tiff",
+            decoder_version="1",
+            recorded_at=_RECORDED,
+        )

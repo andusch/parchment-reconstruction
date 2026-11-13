@@ -26,15 +26,15 @@ Stages run in order. A later stage consumes the records the earlier stage actual
 
 - **Inputs.** A verified source image and a scale target or a human measurement.
 - **Outputs.** A `CalibrationObservation` in `source_pixels`, with uncertainty, epistemic class `observed`, and a `CalibrationTransform` for that image only. Producer is `human`, `machine`, or `imported`, and the class stays `observed`.
-- **Failure.** When no scale evidence exists, do not emit millimetre placements. A claimed resolution in the file header never becomes `pixels_per_mm`. The importer warns and leaves calibration absent. Pixel-space observations may still be recorded in `source_pixels`.
+- **Failure.** When no scale evidence exists, do not emit millimetre placements. A claimed resolution in the file header never becomes `pixels_per_mm`. The importer warns and leaves calibration absent. An operator may pass that claim on `claimed_resolution_scale`. The envelope records `claimed_resolution_ppi`, evidence description `claimed resolution`, and `populates_calibration: false`. It does not write `CalibrationObservation` or `pixels_per_mm`, and it does not read the file header. Pixel-space observations may still be recorded in `source_pixels`.
 
 The target type and the acceptable scale error are [Q-SCI-10](SCAN_PROTOCOL.md#q-sci-10).
 
 ### 3. Segment fragments
 
-- **Inputs.** A verified source image.
-- **Outputs.** One `FragmentOutlineRevision` for a single 4-connected foreground component, epistemic class `interpretation`, producer `machine`, grouped by an `AlgorithmRun`. The implemented segmenter fails when it finds more than one component.
-- **Failure.** When segmentation fails, record the failed run under its own id, not the id a later completed run of the same inputs would take. Do not invent an outline. A group scan is `SourceImage.group_scan` from the [scan protocol](SCAN_PROTOCOL.md). It is not a confidence value, and it is not treated as metrologically equivalent to a one-fragment frame.
+- **Inputs.** A verified source image. The optional parameter `enclosed_background_treatment` is omitted, or `fill_without_4_interior`.
+- **Outputs.** One `FragmentOutlineRevision` for a single 4-connected foreground component, epistemic class `interpretation`, producer `machine`, grouped by an `AlgorithmRun`. The implemented segmenter fails when it finds more than one component. When the treatment is omitted, the threshold mask is unchanged. `fill_without_4_interior` fills an enclosed 4-connected background component that does not contain the radius-1 structuring element (a pixel and its four edge neighbors). It does not dilate the outer boundary and it does not merge foreground components. The parameter blob names the treatment when it is used. The algorithm version stays `1`.
+- **Failure.** When segmentation fails, record the failed run under its own id, not the id a later completed run of the same inputs would take. Do not invent an outline. A component that contains the structuring element stays background, and the hole check still fails. A group scan is `SourceImage.group_scan` from the [scan protocol](SCAN_PROTOCOL.md). It is not a confidence value, and it is not treated as metrologically equivalent to a one-fragment frame.
 
 
 

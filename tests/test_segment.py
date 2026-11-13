@@ -5,12 +5,19 @@ import struct
 import uuid
 from pathlib import Path
 
+import pytest
+
 from prw.identity import content_id, hash_value
 from prw.ingest import IntegrityFailure, UnsupportedMediaType
 from prw.lossless_tiff import TiffDecodeFailure
 from prw.outlines import FragmentOutlineRevision
 from prw.provenance import AlgorithmRun
-from prw.segment import FailedSegmentation, SegmentationLog, SegmentedOutline
+from prw.segment import (
+    FILL_WITHOUT_4_INTERIOR,
+    FailedSegmentation,
+    SegmentationLog,
+    SegmentedOutline,
+)
 from prw.synthetic_tear import (
     DECODER_NAME,
     DECODER_VERSION,
@@ -52,6 +59,7 @@ def _segment(
     expected_hash: str | None = None,
     recorded_at: str = _RECORDED,
     project_id: uuid.UUID | None = None,
+    treatment: str | None = None,
 ) -> object:
     return log.segment(
         payload,
@@ -61,6 +69,7 @@ def _segment(
         code_version="test-code",
         recorded_at=recorded_at,
         expected_hash=expected_hash,
+        enclosed_background_treatment=treatment,
     )
 
 
@@ -210,3 +219,128 @@ def test_page_mosaic_fails_and_the_label_is_not_the_manifest_id(tmp_path: Path) 
     assert segmented.fragment.id == content_id([project_id, "caller-label"])
     assert str(segmented.fragment.id) != entry["fragment_id"]
     assert log.outlines == (segmented.outline,)
+
+
+def _block(
+    width: int,
+    height: int,
+    *,
+    x0: int,
+    y0: int,
+    x1: int,
+    y1: int,
+    missing: set[tuple[int, int]] | None = None,
+) -> bytes:
+    foreground = {
+        (x_coord, y_coord)
+        for x_coord in range(x0, x1 + 1)
+        for y_coord in range(y0, y1 + 1)
+    }
+    if missing:
+        foreground -= missing
+    return _raster(width, height, foreground)
+
+
+def test_omitted_treatment_still_fails_a_one_pixel_hole() -> None:
+    payload = _block(7, 7, x0=1, y0=1, x1=5, y1=5, missing={(3, 3)})
+    failed = _segment(SegmentationLog(), payload)
+    assert isinstance(failed, FailedSegmentation)
+    assert failed.kind == "hole"
+    assert json.loads(failed.run.provenance.parameter_blob) == {
+        "foreground_threshold": 1
+    }
+
+
+def test_fill_without_4_interior_closes_a_speckle_and_records_the_rule() -> None:
+    payload = _block(7, 7, x0=1, y0=1, x1=5, y1=5, missing={(3, 3)})
+    solid = _block(7, 7, x0=1, y0=1, x1=5, y1=5)
+    opened = _segment(SegmentationLog(), payload, treatment=FILL_WITHOUT_4_INTERIOR)
+    untreated = _segment(SegmentationLog(), solid)
+    assert isinstance(opened, SegmentedOutline)
+    assert isinstance(untreated, SegmentedOutline)
+    assert opened.outline.polygon == untreated.outline.polygon
+    assert opened.outline.epistemic_class == "interpretation"
+    assert opened.outline.producer == "machine"
+    blob = json.loads(opened.run.provenance.parameter_blob)
+    assert blob == {
+        "enclosed_background_treatment": "fill_without_4_interior",
+        "foreground_threshold": 1,
+    }
+    assert opened.run.provenance.algorithm_version == "1"
+    assert opened.run.provenance.model_hash == "absent"
+    assert "random_seed" not in opened.run.provenance.content_mapping()
+    assert "pixels_per_mm" not in blob
+
+
+def test_fill_closes_a_crack_longer_than_eleven_pixels() -> None:
+    missing = {(x_coord, 3) for x_coord in range(2, 22)}
+    assert len(missing) == 20
+    payload = _block(24, 7, x0=1, y0=1, x1=22, y1=5, missing=missing)
+    solid = _block(24, 7, x0=1, y0=1, x1=22, y1=5)
+    opened = _segment(SegmentationLog(), payload, treatment=FILL_WITHOUT_4_INTERIOR)
+    baseline = _segment(SegmentationLog(), solid)
+    assert isinstance(opened, SegmentedOutline)
+    assert isinstance(baseline, SegmentedOutline)
+    assert (
+        opened.outline.polygon
+        == baseline.outline.polygon
+        == (
+            (1.0, 1.0),
+            (22.0, 1.0),
+            (22.0, 5.0),
+            (1.0, 5.0),
+        )
+    )
+
+
+def test_a_hole_with_a_4_interior_still_fails_when_the_treatment_is_on() -> None:
+    center = {(4, 4), (4, 3), (4, 5), (3, 4), (5, 4)}
+    payload = _block(9, 9, x0=1, y0=1, x1=7, y1=7, missing=center)
+    failed = _segment(SegmentationLog(), payload, treatment=FILL_WITHOUT_4_INTERIOR)
+    assert isinstance(failed, FailedSegmentation)
+    assert failed.kind == "hole"
+    assert not hasattr(failed, "polygon")
+    blob = json.loads(failed.run.provenance.parameter_blob)
+    assert blob["enclosed_background_treatment"] == "fill_without_4_interior"
+
+
+def test_treatment_does_not_fill_a_border_inlet_or_merge_components() -> None:
+    inlet = _block(
+        8,
+        8,
+        x0=1,
+        y0=1,
+        x1=6,
+        y1=6,
+        missing={(3, 0), (3, 1), (3, 2)},
+    )
+    # (3, 0) is outside the block, so the inlet from the top edge is (3, 1), (3, 2).
+    treated = _segment(SegmentationLog(), inlet, treatment=FILL_WITHOUT_4_INTERIOR)
+    plain = _segment(SegmentationLog(), inlet)
+    assert isinstance(treated, SegmentedOutline)
+    assert isinstance(plain, SegmentedOutline)
+    assert treated.outline.polygon == plain.outline.polygon
+
+    split = _raster(
+        6,
+        4,
+        {(0, 0), (1, 0), (0, 1), (1, 1), (4, 0), (5, 0), (4, 1), (5, 1)},
+    )
+    failed = _segment(SegmentationLog(), split, treatment=FILL_WITHOUT_4_INTERIOR)
+    assert isinstance(failed, FailedSegmentation)
+    assert failed.kind == "multiple_components"
+    assert not hasattr(failed, "polygon")
+
+
+def test_unknown_treatment_is_rejected_and_the_default_polygon_is_unchanged() -> None:
+    payload = _rectangle()
+    with pytest.raises(ValueError, match="fill_without_4_interior"):
+        _segment(SegmentationLog(), payload, treatment="area_at_most_11")
+    baseline = _segment(SegmentationLog(), payload)
+    treated = _segment(SegmentationLog(), payload, treatment=FILL_WITHOUT_4_INTERIOR)
+    assert isinstance(baseline, SegmentedOutline)
+    assert isinstance(treated, SegmentedOutline)
+    assert treated.outline.polygon == baseline.outline.polygon
+    assert json.loads(baseline.run.provenance.parameter_blob) == {
+        "foreground_threshold": 1
+    }

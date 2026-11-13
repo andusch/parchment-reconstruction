@@ -63,8 +63,15 @@ from prw.provenance import (
     StatusEvent,
     StatusStream,
 )
-from prw.scale import CallerScale, ScaledOutline, ScaleLog
+from prw.scale import (
+    CallerScale,
+    ClaimedResolution,
+    ScaledOutline,
+    ScaleLog,
+    record_claimed_resolution,
+)
 from prw.segment import (
+    FILL_WITHOUT_4_INTERIOR,
     FailedSegmentation,
     SegmentationLog,
     SegmentedOutline,
@@ -141,8 +148,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Print one fragment outline. Unfrozen; not a stable interface.",
     )
     _add_segment_arguments(segment)
-    segment.add_argument("--pixels-per-mm", type=float, default=None)
-    segment.add_argument("--uncertainty", type=float, default=None)
+    _add_scale_arguments(segment)
 
     agree = commands.add_parser(
         "agree",
@@ -216,6 +222,15 @@ def _parser() -> argparse.ArgumentParser:
 def _add_scale_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--pixels-per-mm", type=float, default=None)
     parser.add_argument("--uncertainty", type=float, default=None)
+    parser.add_argument(
+        "--claimed-ppi",
+        type=float,
+        default=None,
+        help=(
+            "Operator-supplied claimed resolution in pixels per inch. "
+            "Not a measured pixels_per_mm, and not read from the file header."
+        ),
+    )
 
 
 def _add_assembly_arguments(parser: argparse.ArgumentParser) -> None:
@@ -246,8 +261,21 @@ def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--foreground-threshold", type=int, required=True)
     parser.add_argument("--code-version", required=True)
+    _add_enclosed_background_argument(parser)
     _add_scale_arguments(parser)
     parser.add_argument("--minimum-edge-length-mm", type=float, default=0.0)
+
+
+def _add_enclosed_background_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--enclosed-background-treatment",
+        default=None,
+        choices=(FILL_WITHOUT_4_INTERIOR,),
+        help=(
+            "Fill enclosed background that does not contain a 4-interior "
+            "pixel. Omit to leave the hole check unchanged."
+        ),
+    )
 
 
 def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
@@ -256,6 +284,7 @@ def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--label", required=True)
     parser.add_argument("--foreground-threshold", type=int, required=True)
     parser.add_argument("--code-version", required=True)
+    _add_enclosed_background_argument(parser)
 
 
 def _presented_bytes(path: Path) -> bytes:
@@ -393,17 +422,19 @@ def _cmd_provenance(args: argparse.Namespace) -> int:
 
 
 def _cmd_segment(args: argparse.Namespace) -> int:
+    _require_scale_choice(args)
     presented = _presented_bytes(args.path)
     segmented = _segment_presented(args, presented)
     if not isinstance(segmented, SegmentedOutline):
-        _print_failure(segmented)
+        _print_failure(segmented, args)
         return 1
-    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    claim = _claim_for_provenance(args, segmented.run.provenance)
     if args.pixels_per_mm is None:
         _print_outline(
             segmented.outline,
             frame=segmented.frame.kind,
             envelope=segmented.run.provenance,
+            claim=claim,
         )
         return 0
     scaled = _apply_scale(segmented, args)
@@ -416,12 +447,13 @@ def _cmd_segment(args: argparse.Namespace) -> int:
 
 
 def _cmd_edge(args: argparse.Namespace) -> int:
-    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    _require_scale_choice(args)
     presented = _presented_bytes(args.path)
     segmented = _segment_presented(args, presented)
     if not isinstance(segmented, SegmentedOutline):
-        _print_failure(segmented)
+        _print_failure(segmented, args)
         return 1
+    claim = _claim_for_provenance(args, segmented.run.provenance)
     if args.pixels_per_mm is None:
         traced = _trace(
             segmented.outline,
@@ -433,7 +465,7 @@ def _cmd_edge(args: argparse.Namespace) -> int:
         scaled = _apply_scale(segmented, args)
         traced = _trace(scaled.outline, scaled.frame, scaled.run.provenance, args)
     if isinstance(traced, FailedEdgeChord):
-        _print_run_failure("FailedEdgeChord", traced.run.id)
+        _print_run_failure("FailedEdgeChord", traced.run.id, claim)
         return 1
     _print_edges(traced)
     return 0
@@ -449,8 +481,14 @@ def _cmd_rank(args: argparse.Namespace) -> int:
         recorded_at=_utc_now(),
     )
     if isinstance(result, FailedPairwiseJoin):
-        _print_run_failure("FailedPairwiseJoin", result.run.id)
+        _print_run_failure(
+            "FailedPairwiseJoin",
+            result.run.id,
+            _claim_for_chords(args, prepared),
+        )
         return 1
+    if _claimed_ppi(args) is not None:
+        raise ValueError("A claimed resolution does not emit a join.")
     _print_ranked(
         result,
         physical_join_order(result.joins, (result.run,), result.proposed),
@@ -459,6 +497,8 @@ def _cmd_rank(args: argparse.Namespace) -> int:
 
 
 def _cmd_recall(args: argparse.Namespace) -> int:
+    _require_scale_choice(args)
+    _refuse_claimed_calibration(args)
     prepared = _pool(args, "A BenchmarkLabel join file is not a recall path.")
     if isinstance(prepared, int):
         return prepared
@@ -615,7 +655,8 @@ def _assembly_search(
     """
     for path, _label in _image_pairs(args.images):
         _refuse_join_label_path(path, refuse_message)
-    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    _require_scale_choice(args)
+    _refuse_claimed_calibration(args)
     page = _page_frame(args)
     if args.pixels_per_mm is None or page is None:
         return (_failed_assembly_search(args), None)
@@ -686,7 +727,7 @@ def _millimetre_pool(args: argparse.Namespace) -> _MillimetrePool | int:
         presented = _presented_bytes(path)
         segmented = _segment_presented(args, presented, label)
         if not isinstance(segmented, SegmentedOutline):
-            _print_failure(segmented)
+            _print_failure(segmented, args)
             return 1
         scaled = _apply_scale(segmented, args)
         traced = _trace(scaled.outline, scaled.frame, scaled.run.provenance, args)
@@ -781,7 +822,7 @@ def _cmd_agree(args: argparse.Namespace) -> int:
     presented = _presented_bytes(args.path)
     segmented = _segment_presented(args, presented)
     if not isinstance(segmented, SegmentedOutline):
-        _print_failure(segmented)
+        _print_failure(segmented, args)
         return 1
     if args.frame != segmented.frame.kind:
         raise ValueError("Outline agreement uses the segmented outline's frame.")
@@ -810,12 +851,84 @@ def _segment_presented(
         code_version=args.code_version,
         recorded_at=_utc_now(),
         expected_hash=getattr(args, "expected", None),
+        enclosed_background_treatment=getattr(
+            args, "enclosed_background_treatment", None
+        ),
     )
 
 
 def _require_scale_pair(pixels_per_mm: float | None, uncertainty: float | None) -> None:
     if (pixels_per_mm is None) != (uncertainty is None):
         raise ValueError("pixels_per_mm and uncertainty are supplied together.")
+
+
+def _claimed_ppi(args: argparse.Namespace) -> float | None:
+    return getattr(args, "claimed_ppi", None)
+
+
+def _require_scale_choice(args: argparse.Namespace) -> None:
+    claimed = _claimed_ppi(args)
+    if claimed is not None and (
+        args.pixels_per_mm is not None or args.uncertainty is not None
+    ):
+        raise ValueError("claimed_resolution_ppi is not a measured pixels_per_mm.")
+    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+
+
+def _refuse_claimed_calibration(args: argparse.Namespace) -> None:
+    if _claimed_ppi(args) is not None:
+        raise ValueError("A claimed resolution does not populate calibration.")
+
+
+def _claim_for_provenance(
+    args: argparse.Namespace, provenance: ProvenanceEnvelope
+) -> ClaimedResolution | None:
+    claimed = _claimed_ppi(args)
+    if claimed is None:
+        return None
+    return record_claimed_resolution(
+        claimed,
+        source_hashes=provenance.source_hashes,
+        code_version=provenance.code_version,
+        decoder_name=provenance.decoder_name,
+        decoder_version=provenance.decoder_version,
+        recorded_at=_utc_now(),
+    )
+
+
+def _claim_for_chords(
+    args: argparse.Namespace, chords: Sequence[FragmentChords]
+) -> ClaimedResolution | None:
+    claimed = _claimed_ppi(args)
+    if claimed is None:
+        return None
+    hashes = tuple(
+        sorted({digest for item in chords for digest in item.envelope.source_hashes})
+    )
+    decoders = {
+        (item.envelope.decoder_name, item.envelope.decoder_version) for item in chords
+    }
+    if len(decoders) == 1:
+        decoder_name, decoder_version = next(iter(decoders))
+    else:
+        decoder_name, decoder_version = ABSENT, ABSENT
+    return record_claimed_resolution(
+        claimed,
+        source_hashes=hashes,
+        code_version=args.code_version,
+        decoder_name=decoder_name,
+        decoder_version=decoder_version,
+        recorded_at=_utc_now(),
+    )
+
+
+def _claimed_payload(claim: ClaimedResolution) -> dict[str, Any]:
+    return {
+        "evidence_description": "claimed resolution",
+        "claimed_resolution_ppi": claim.claimed_resolution_ppi,
+        "calibration": ABSENT,
+        "envelope": _envelope_payload(claim.run.provenance),
+    }
 
 
 def _apply_scale(
@@ -875,13 +988,13 @@ def _pool(
     pairs = _image_pairs(args.images)
     for path, _label in pairs:
         _refuse_join_label_path(path, refuse_message)
-    _require_scale_pair(args.pixels_per_mm, args.uncertainty)
+    _require_scale_choice(args)
     pool: list[FragmentChords] = []
     for path, label in pairs:
         presented = _presented_bytes(path)
         segmented = _segment_presented(args, presented, label)
         if not isinstance(segmented, SegmentedOutline):
-            _print_failure(segmented)
+            _print_failure(segmented, args)
             return 1
         contribution = _chords_for(segmented, args)
         if isinstance(contribution, FailedEdgeChord):
@@ -981,8 +1094,15 @@ def _print_ranked(
     )
 
 
-def _print_run_failure(record: str, run_id: uuid.UUID) -> None:
-    _print_record({"record": record, "run_id": run_id, "status": "failed"})
+def _print_run_failure(
+    record: str,
+    run_id: uuid.UUID,
+    claim: ClaimedResolution | None = None,
+) -> None:
+    payload: dict[str, Any] = {"record": record, "run_id": run_id, "status": "failed"}
+    if claim is not None:
+        payload["claimed_resolution"] = _claimed_payload(claim)
+    _print_record(payload)
 
 
 def _refuse_join_label_path(path: Path, message: str) -> None:
@@ -1001,21 +1121,23 @@ def _print_outline(
     *,
     frame: str,
     envelope: ProvenanceEnvelope,
+    claim: ClaimedResolution | None = None,
 ) -> None:
-    _print_record(
-        {
-            "record": "FragmentOutlineRevision",
-            "epistemic_class": outline.epistemic_class,
-            "producer": outline.producer,
-            "frame": frame,
-            "polygon": outline.polygon,
-            "id": outline.id,
-            "envelope": _envelope_payload(envelope),
-        }
-    )
+    payload: dict[str, Any] = {
+        "record": "FragmentOutlineRevision",
+        "epistemic_class": outline.epistemic_class,
+        "producer": outline.producer,
+        "frame": frame,
+        "polygon": outline.polygon,
+        "id": outline.id,
+        "envelope": _envelope_payload(envelope),
+    }
+    if claim is not None:
+        payload["claimed_resolution"] = _claimed_payload(claim)
+    _print_record(payload)
 
 
-def _print_failure(result: object) -> None:
+def _print_failure(result: object, args: argparse.Namespace | None = None) -> None:
     if isinstance(result, IntegrityFailure):
         _print_record(
             {
@@ -1041,13 +1163,16 @@ def _print_failure(result: object) -> None:
         _print_record({"record": "TiffDecodeFailure", "kind": result.kind})
         return
     if isinstance(result, FailedSegmentation):
-        _print_record(
-            {
-                "record": "FailedSegmentation",
-                "kind": result.kind,
-                "run_id": result.run.id,
-            }
-        )
+        payload: dict[str, Any] = {
+            "record": "FailedSegmentation",
+            "kind": result.kind,
+            "run_id": result.run.id,
+        }
+        if args is not None:
+            claim = _claim_for_provenance(args, result.run.provenance)
+            if claim is not None:
+                payload["claimed_resolution"] = _claimed_payload(claim)
+        _print_record(payload)
         return
     raise ValueError("Segmentation returned an unknown record.")
 

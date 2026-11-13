@@ -11,6 +11,11 @@ caller. This module does not read a TIFF header and does not estimate a
 target. ``Q-SCI-10`` stays open. Absent scale leaves the outline in
 ``source_pixels`` and does not invent a millimetre polygon.
 
+``record_claimed_resolution`` stores an operator-supplied claim in pixels
+per inch. The parameter blob names that claim and says it does not
+populate calibration. The record is not a ``CalibrationObservation``, and
+it does not store ``pixels_per_mm``. A file-header resolution is not read.
+
 The millimetre outline stays epistemic class ``interpretation`` with
 producer ``machine``. Calibration stays ``observed``. Supplying a scale
 does not make the outline observed.
@@ -18,6 +23,7 @@ does not make the outline observed.
 
 from __future__ import annotations
 
+import json
 import math
 import uuid
 from collections.abc import Sequence
@@ -37,7 +43,10 @@ from prw.provenance import (
 
 ALGORITHM_NAME = "caller_supplied_scale"
 ALGORITHM_VERSION = "1"
+CLAIMED_ALGORITHM_NAME = "claimed_resolution_scale"
+CLAIMED_ALGORITHM_VERSION = "1"
 EVIDENCE_DESCRIPTION = "caller-supplied measurement"
+CLAIMED_EVIDENCE_DESCRIPTION = "claimed resolution"
 PIXEL_CENTER = (0.5, 0.5)
 Producer = Literal["human", "machine"]
 
@@ -69,6 +78,13 @@ def _require_text(value: str, label: str) -> str:
     if not isinstance(value, str) or value == "":
         raise ValueError(f"{label} is required.")
     return value
+
+
+def _claimed_ppi(value: object) -> float:
+    number = _finite_number(value, "claimed_resolution_ppi")
+    if number <= 0:
+        raise ValueError("claimed_resolution_ppi is a positive finite number.")
+    return number
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,6 +413,80 @@ def _envelope(
         decoder_name=_require_text(decoder_name, "decoder_name"),
         decoder_version=_require_text(decoder_version, "decoder_version"),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class ClaimedResolution:
+    """An operator claim. This is not a calibration observation.
+
+    The envelope records ``claimed_resolution_ppi`` and says the claim does
+    not populate calibration. There is no ``pixels_per_mm`` and no
+    ``CalibrationObservation``.
+    """
+
+    claimed_resolution_ppi: float
+    run: AlgorithmRun
+
+    def __post_init__(self) -> None:
+        if self.run.status != "completed" or self.run.attempt_id is not None:
+            raise ValueError("A claimed-resolution record is a completed run.")
+        provenance = self.run.provenance
+        if provenance.algorithm_name != CLAIMED_ALGORITHM_NAME:
+            raise ValueError("The claim algorithm is claimed_resolution_scale.")
+        if provenance.algorithm_version != CLAIMED_ALGORITHM_VERSION:
+            raise ValueError("The claim algorithm version is 1.")
+        if provenance.random_seed is not None:
+            raise ValueError("Recording a claimed resolution is deterministic.")
+        parameters = json.loads(provenance.parameter_blob)
+        if parameters.get("evidence_description") != CLAIMED_EVIDENCE_DESCRIPTION:
+            raise ValueError("The evidence is claimed resolution.")
+        if parameters.get("populates_calibration") is not False:
+            raise ValueError("A claimed resolution does not populate calibration.")
+        if "pixels_per_mm" in parameters or "uncertainty" in parameters:
+            raise ValueError("A claimed resolution does not store pixels_per_mm.")
+        if parameters.get("claimed_resolution_ppi") != self.claimed_resolution_ppi:
+            raise ValueError("The parameter blob stores the claimed resolution.")
+        if self.run.join_ids or self.run.assembly_ids or self.run.reading_ids:
+            raise ValueError(
+                "A claimed resolution emits no join, assembly, or reading."
+            )
+        if self.run.line_ids or self.run.line_order_ids:
+            raise ValueError("A claimed resolution emits no text line.")
+
+
+def record_claimed_resolution(
+    claimed_resolution_ppi: object,
+    *,
+    source_hashes: Sequence[str],
+    code_version: str,
+    decoder_name: str,
+    decoder_version: str,
+    recorded_at: str,
+) -> ClaimedResolution:
+    """Record ``claimed_resolution_ppi`` without writing a calibration.
+
+    The number is the caller's claim. This function does not read a file,
+    a TIFF header, or a catalogue size, and it does not convert the claim
+    into ``pixels_per_mm``.
+    """
+    ppi = _claimed_ppi(claimed_resolution_ppi)
+    if len(tuple(source_hashes)) < 1:
+        raise ValueError("The claim cites the source image hash.")
+    envelope = ProvenanceEnvelope.create(
+        source_hashes=source_hashes,
+        parameters={
+            "claimed_resolution_ppi": ppi,
+            "evidence_description": CLAIMED_EVIDENCE_DESCRIPTION,
+            "populates_calibration": False,
+        },
+        algorithm_name=CLAIMED_ALGORITHM_NAME,
+        algorithm_version=CLAIMED_ALGORITHM_VERSION,
+        code_version=_require_text(code_version, "code_version"),
+        decoder_name=_require_text(decoder_name, "decoder_name"),
+        decoder_version=_require_text(decoder_version, "decoder_version"),
+    )
+    run = AlgorithmRun.create(envelope, status="completed", started_at=recorded_at)
+    return ClaimedResolution(claimed_resolution_ppi=ppi, run=run)
 
 
 class ScaleLog:

@@ -12,6 +12,14 @@ run is stored under its own id, including ``attempt_id``, and no polygon
 is inserted. A page of several components fails. That failure does not set
 ``group_scan``. ``Q-PRD-04`` stays open.
 
+An omitted enclosed-background treatment leaves that mask unchanged. The
+treatment ``fill_without_4_interior`` fills an enclosed 4-connected
+background component when the component does not contain the radius-1
+structuring element: a pixel and its four edge neighbors. The outer
+boundary is not dilated, and separate foreground components are not
+merged. A component that contains that element stays background, and the
+hole check still fails. The default synthetic path omits the parameter.
+
 The algorithm name ``fragment_outline`` and version ``1`` are provenance
 labels. They are not a public CLI contract. ``random_seed`` is omitted.
 Samples come from ``prw.fixture_tiff`` when the bytes are that writer's
@@ -49,6 +57,7 @@ from prw.provenance import (
 
 ALGORITHM_NAME = "fragment_outline"
 ALGORITHM_VERSION = "1"
+FILL_WITHOUT_4_INTERIOR = "fill_without_4_interior"
 
 SegmentationFailureKind = Literal[
     "no_foreground",
@@ -89,8 +98,118 @@ def _require_threshold(value: object) -> int:
     return value
 
 
+def _require_treatment(value: object) -> str | None:
+    if value is None:
+        return None
+    if value != FILL_WITHOUT_4_INTERIOR:
+        raise ValueError(
+            "enclosed_background_treatment is fill_without_4_interior, or omitted."
+        )
+    return FILL_WITHOUT_4_INTERIOR
+
+
 def _mask(samples: bytes, threshold: int) -> bytearray:
     return bytearray(1 if sample >= threshold else 0 for sample in samples)
+
+
+def _prepared_mask(
+    samples: bytes,
+    width: int,
+    height: int,
+    threshold: int,
+    treatment: str | None,
+) -> bytearray:
+    mask = _mask(samples, threshold)
+    if treatment == FILL_WITHOUT_4_INTERIOR:
+        _fill_enclosed_without_4_interior(mask, width, height)
+    return mask
+
+
+def _fill_enclosed_without_4_interior(mask: bytearray, width: int, height: int) -> None:
+    """Fill enclosed background that does not contain a 4-interior pixel.
+
+    Border-connected background stays background. A filled component is
+    one that a 4-connected radius-1 structuring element does not fit
+    inside. The outer foreground boundary is not expanded.
+    """
+    seen = bytearray(width * height)
+    stack: list[int] = []
+    for x_coord in range(width):
+        for y_coord in (0, height - 1):
+            index = y_coord * width + x_coord
+            if mask[index] == 0:
+                stack.append(index)
+    for y_coord in range(height):
+        for x_coord in (0, width - 1):
+            index = y_coord * width + x_coord
+            if mask[index] == 0:
+                stack.append(index)
+    while stack:
+        current = stack.pop()
+        if seen[current] or mask[current]:
+            continue
+        seen[current] = 1
+        x_coord = current % width
+        y_coord = current // width
+        for dx_coord, dy_coord in _NEIGHBORS_4:
+            next_x = x_coord + dx_coord
+            next_y = y_coord + dy_coord
+            if next_x < 0 or next_y < 0 or next_x >= width or next_y >= height:
+                continue
+            next_index = next_y * width + next_x
+            if mask[next_index] == 0 and not seen[next_index]:
+                stack.append(next_index)
+    for index, value in enumerate(mask):
+        if value != 0 or seen[index]:
+            continue
+        component = _flood_background(mask, seen, width, height, index)
+        if not _has_4_interior(component, width):
+            for item in component:
+                mask[item] = 1
+
+
+def _flood_background(
+    mask: bytearray,
+    seen: bytearray,
+    width: int,
+    height: int,
+    start: int,
+) -> list[int]:
+    component = [start]
+    seen[start] = 1
+    stack = [start]
+    while stack:
+        current = stack.pop()
+        x_coord = current % width
+        y_coord = current // width
+        for dx_coord, dy_coord in _NEIGHBORS_4:
+            next_x = x_coord + dx_coord
+            next_y = y_coord + dy_coord
+            if next_x < 0 or next_y < 0 or next_x >= width or next_y >= height:
+                continue
+            next_index = next_y * width + next_x
+            if mask[next_index] == 0 and not seen[next_index]:
+                seen[next_index] = 1
+                component.append(next_index)
+                stack.append(next_index)
+    return component
+
+
+def _has_4_interior(component: list[int], width: int) -> bool:
+    """Return whether any sample has its four edge neighbors in the component."""
+    members = set(component)
+    for index in component:
+        x_coord = index % width
+        if x_coord == 0 or x_coord == width - 1:
+            continue
+        if (
+            index - width in members
+            and index + width in members
+            and index - 1 in members
+            and index + 1 in members
+        ):
+            return True
+    return False
 
 
 def _component_count(mask: bytearray, width: int, height: int) -> int:
@@ -237,16 +356,24 @@ def _direction_changes(
     return tuple(kept)
 
 
+def _parameters(threshold: int, treatment: str | None) -> dict[str, object]:
+    parameters: dict[str, object] = {"foreground_threshold": threshold}
+    if treatment is not None:
+        parameters["enclosed_background_treatment"] = treatment
+    return parameters
+
+
 def _envelope(
     content_hash: str,
     threshold: int,
+    treatment: str | None,
     code_version: str,
     decoder_name: str,
     decoder_version: str,
 ) -> ProvenanceEnvelope:
     return ProvenanceEnvelope.create(
         source_hashes=(content_hash,),
-        parameters={"foreground_threshold": threshold},
+        parameters=_parameters(threshold, treatment),
         algorithm_name=ALGORITHM_NAME,
         algorithm_version=ALGORITHM_VERSION,
         code_version=code_version,
@@ -366,6 +493,7 @@ class SegmentationLog:
         code_version: str,
         recorded_at: str,
         expected_hash: str | None = None,
+        enclosed_background_treatment: str | None = None,
     ) -> SegmentResult:
         """Segment ``presented`` or return the existing ingest or layout failure.
 
@@ -375,6 +503,7 @@ class SegmentationLog:
         if not isinstance(presented, bytes | bytearray):
             raise TypeError("Segmentation reads caller-supplied bytes.")
         threshold = _require_threshold(foreground_threshold)
+        treatment = _require_treatment(enclosed_background_treatment)
         ingested = ingest_bytes(presented, expected_hash=expected_hash)
         if not isinstance(ingested, VerifiedBytes):
             return ingested
@@ -384,6 +513,7 @@ class SegmentationLog:
         envelope = _envelope(
             ingested.content_hash,
             threshold,
+            treatment,
             code_version,
             raster.decoder_name,
             raster.decoder_version,
@@ -392,13 +522,14 @@ class SegmentationLog:
         stored = self._completed.get(completed_id)
         if stored is not None:
             return stored
-        kind = _failure_kind(raster, threshold)
+        kind = _failure_kind(raster, threshold, treatment)
         if kind is not None:
             return self._fail(envelope, recorded_at, kind)
         return self._succeed(
             envelope,
             raster,
             threshold,
+            treatment,
             project_id=project_id,
             label=label,
             source_id=ingested.id,
@@ -420,13 +551,16 @@ class SegmentationLog:
         envelope: ProvenanceEnvelope,
         raster: _Raster,
         threshold: int,
+        treatment: str | None,
         *,
         project_id: uuid.UUID,
         label: str,
         source_id: uuid.UUID,
         recorded_at: str,
     ) -> SegmentedOutline | FailedSegmentation:
-        mask = _mask(raster.samples, threshold)
+        mask = _prepared_mask(
+            raster.samples, raster.width, raster.height, threshold, treatment
+        )
         corners = _outer_boundary(mask, raster.width, raster.height)
         if corners is None:
             return self._fail(envelope, recorded_at, "degenerate_boundary")
@@ -470,8 +604,12 @@ def _read_raster(presented: bytes | bytearray) -> _Raster | TiffDecodeFailure:
     return read_lossless_tiff(presented)
 
 
-def _failure_kind(raster: _Raster, threshold: int) -> SegmentationFailureKind | None:
-    mask = _mask(raster.samples, threshold)
+def _failure_kind(
+    raster: _Raster, threshold: int, treatment: str | None
+) -> SegmentationFailureKind | None:
+    mask = _prepared_mask(
+        raster.samples, raster.width, raster.height, threshold, treatment
+    )
     if not any(mask):
         return "no_foreground"
     if _component_count(mask, raster.width, raster.height) != 1:
