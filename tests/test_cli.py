@@ -287,6 +287,114 @@ def test_segment_with_scale_prints_a_millimetre_outline(tmp_path: Path) -> None:
     assert "correct_join" not in scaled.stdout
 
 
+def test_claimed_ppi_stays_a_claim_and_the_speckle_fill_is_labeled(
+    tmp_path: Path,
+) -> None:
+    _benchmarks, fragment, payload = _fragment(tmp_path)
+    digest = hash_value(payload)
+    plain = _run(
+        "segment",
+        str(fragment),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--expected",
+        digest,
+    )
+    treated = _run(
+        "segment",
+        str(fragment),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--enclosed-background-treatment",
+        "fill_without_4_interior",
+        "--code-version",
+        "test-code",
+        "--expected",
+        digest,
+        "--claimed-ppi",
+        "400",
+    )
+    assert plain.returncode == 0, plain.stderr
+    assert treated.returncode == 0, treated.stderr
+    plain_body = json.loads(plain.stdout)
+    body = json.loads(treated.stdout)
+    assert body["frame"] == "source_pixels"
+    assert body["polygon"] == plain_body["polygon"]
+    assert body["epistemic_class"] == "interpretation"
+    assert body["envelope"]["algorithm_name"] == "fragment_outline"
+    assert json.loads(body["envelope"]["parameter_blob"]) == {
+        "enclosed_background_treatment": "fill_without_4_interior",
+        "foreground_threshold": 1,
+    }
+    claim = body["claimed_resolution"]
+    assert claim["evidence_description"] == "claimed resolution"
+    assert claim["claimed_resolution_ppi"] == 400.0
+    assert claim["calibration"] == "absent"
+    claim_blob = json.loads(claim["envelope"]["parameter_blob"])
+    assert claim_blob == {
+        "claimed_resolution_ppi": 400.0,
+        "evidence_description": "claimed resolution",
+        "populates_calibration": False,
+    }
+    assert "pixels_per_mm" not in treated.stdout
+    assert "25.4" not in treated.stdout
+    assert claim["envelope"]["algorithm_name"] == "claimed_resolution_scale"
+    assert "random_seed" not in claim["envelope"]
+
+    mixed = _run(
+        "segment",
+        str(fragment),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--claimed-ppi",
+        "400",
+        "--pixels-per-mm",
+        "15.748",
+        "--uncertainty",
+        "0",
+    )
+    assert mixed.returncode == 2
+    assert mixed.stdout == ""
+    assert "claimed_resolution_ppi is not a measured pixels_per_mm." in mixed.stderr
+
+    images = tmp_path / "images"
+    fragments = sorted(images.glob("fragment-*.tif"))
+    ranked = _run(
+        "rank",
+        "--image",
+        "piece-a",
+        str(fragments[0]),
+        "--image",
+        "piece-b",
+        str(fragments[2]),
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+        "--claimed-ppi",
+        "400",
+    )
+    assert ranked.returncode == 1
+    failure = json.loads(ranked.stdout)
+    assert failure["record"] == "FailedPairwiseJoin"
+    assert failure["status"] == "failed"
+    assert "joins" not in failure
+    assert failure["claimed_resolution"]["calibration"] == "absent"
+    assert failure["claimed_resolution"]["evidence_description"] == "claimed resolution"
+    assert "physical_join_order" not in ranked.stdout
+    assert "pixels_per_mm" not in ranked.stdout
+
+
 def _first_fragment(images: Path) -> tuple[Path, list[str]]:
     manifest = json.loads((images / "image_manifest.json").read_text(encoding="utf-8"))
     names = [

@@ -167,6 +167,21 @@ uv run prw segment "$PIECE_A" \
 
 Exit `0`. `frame` is `fragment_local_mm`. `epistemic_class` is `interpretation`. `producer` is `machine`. `envelope.algorithm_name` is `caller_supplied_scale`.
 
+A claimed resolution is a different flag. It does not stand in for the measurement pair, and the command does not read a TIFF resolution tag:
+
+```bash
+uv run prw segment "$PIECE_A" \
+  --label shelf-4 \
+  --foreground-threshold 1 \
+  --code-version "$CODE" \
+  --expected "$PIECE_A_HASH" \
+  --claimed-ppi 400
+```
+
+Exit `0`. `frame` stays `source_pixels`. `envelope.algorithm_name` stays `fragment_outline`. `claimed_resolution.evidence_description` is `claimed resolution`. `claimed_resolution.calibration` is `absent`. `claimed_resolution.envelope.algorithm_name` is `claimed_resolution_scale`. The claim's parameter blob stores `claimed_resolution_ppi` and `populates_calibration` false. It does not store `pixels_per_mm`. Passing `--claimed-ppi` together with either measurement flag exits `2`. Stdout is empty. Stderr contains `claimed_resolution_ppi is not a measured pixels_per_mm.`
+
+`--enclosed-background-treatment fill_without_4_interior` fills an enclosed background component that does not contain a pixel and its four edge neighbors. The outline stays an interpretation. The parameter blob names `enclosed_background_treatment`. Omit the flag and the blob stays `foreground_threshold` alone. A component that does contain that element still fails as `hole`.
+
 One scale flag without the other exits `2`. Stdout is empty. Stderr contains `pixels_per_mm and uncertainty are supplied together.`
 
 A checksum mismatch prints `IntegrityFailure` and no polygon:
@@ -226,7 +241,7 @@ The pair is the first and third fragment names in sorted order. With lighting va
 
 `$BENCHMARKS/labels.json` is byte-identical to the file `generate` wrote.
 
-Omit the scale pair and the process exits `1` with `record` `FailedPairwiseJoin` and `status` `failed`. That object has no `joins` key. Passing the label file as an image exits `2`, prints no JSON, and writes `A BenchmarkLabel join file is not a rank path.` on stderr:
+Omit the scale pair and the process exits `1` with `record` `FailedPairwiseJoin` and `status` `failed`. That object has no `joins` key. `--claimed-ppi 400` is the same refusal, with `claimed_resolution.calibration` `absent` and `claimed_resolution.evidence_description` `claimed resolution`. That object has no `joins` key and no `pixels_per_mm`. `recall`, `assemble`, `assembly-rank`, `placement-error`, and `join-presence` reject `--claimed-ppi` with exit `2` and `A claimed resolution does not populate calibration.` Passing the label file as an image exits `2`, prints no JSON, and writes `A BenchmarkLabel join file is not a rank path.` on stderr:
 
 ```bash
 uv run prw rank \

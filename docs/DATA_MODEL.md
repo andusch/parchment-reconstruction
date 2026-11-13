@@ -125,7 +125,7 @@ Observed evidence. Pixels are immutable. The product rule is a lossless TIFF. `p
 | `protocol_version` | Scan-protocol version the capture claims to follow |
 | `storage_path` | Location of the authoritative bytes inside `originals/` |
 
-`claimed_resolution_ppi` is not a measurement. When it is the only scale information, the importer warns and leaves `CalibrationObservation` null. The warning is a `ProtocolException`. It does not create a scale row.
+`claimed_resolution_ppi` is not a measurement. When it is the only scale information, the importer warns and leaves `CalibrationObservation` null. The warning is a `ProtocolException`. It does not create a scale row. The headless path `claimed_resolution_scale` records an operator-supplied claim and still does not write `CalibrationObservation` or `pixels_per_mm`. A file-header resolution does not populate that record.
 
 ### ProtocolException
 

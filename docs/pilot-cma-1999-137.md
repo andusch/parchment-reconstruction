@@ -1,7 +1,8 @@
 # Cleveland 1999.137 retry
 
-- Status: Working note. The retry produced no join list.
-- Run: 13 November 2026, checkout `6f64d082be2de162876c4447a1d457bf08165bde` (merge of PR #18). Command names and flags are unfrozen.
+- Status: Working note. The second retry returns one outline per file and emits no join list.
+- First run: 13 November 2026, checkout `6f64d082be2de162876c4447a1d457bf08165bde` (merge of PR #18). That run is the section [First retry](#first-retry).
+- Second run: 13 November 2026, code version `77c4ff9dd48ff2f0e6639437b8a60e774d98e093`. That run is the section [Second retry](#second-retry).
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On this machine that directory was `/home/ubuntu/prw-pilot/1999.137`. Text sidecars sit beside the files and are not in Git. [`.gitignore`](../.gitignore) ignores `*.tif` and `*.tiff`. The files were never under `data/`, `scans/`, or `real_data/`.
@@ -9,6 +10,80 @@ The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On 
 The Cleveland catalogue groups these three cuttings under accession `1999.137`. The object-page text read on this day does not say they are torn mates, and it does not say that an edge of one meets an edge of another. This note does not treat them as mates. It does not treat a join as a reconstruction. No join was emitted.
 
 [1951.314](pilot-first-run.md) was not opened. The group file `1999.137_full.tif` was not downloaded, and no whole leaf was cut to make a pool.
+
+## Second retry
+
+Code version passed to every pixel command: `77c4ff9dd48ff2f0e6639437b8a60e774d98e093`. The bytes, the license check, and the header claim are the same records as the [source table](#source-and-license). On this day the terms pages were read again, and the API records for `1999.137` and `1999.137.1`–`1999.137.3` still set `share_license_status` to `CC0`. `sha256sum` of the three files matched the table before the commands and again after them. The files were not edited.
+
+`CODE` below is `77c4ff9dd48ff2f0e6639437b8a60e774d98e093`. `LEAF` is `$HOME/prw-pilot/1999.137`.
+
+`prw verify` was run again on each file. Each exited `0`. `record` is `VerifiedBytes`. The ids are the same three ids as the first retry.
+
+One control, without the new treatment, on `1999.137.1` only:
+
+```bash
+uv run prw segment "$LEAF/1999.137.1_full.tif" \
+  --label 1999.137.1 \
+  --foreground-threshold 1 \
+  --code-version "$CODE"
+```
+
+Exit `1`. `record` is `FailedSegmentation`. `kind` is `hole`. The object has no `polygon` key. The printed `run_id` includes a random `attempt_id` and is not copied here.
+
+The treatment on each file:
+
+```bash
+uv run prw segment "$LEAF/1999.137.1_full.tif" \
+  --label 1999.137.1 \
+  --foreground-threshold 1 \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.2_full.tif" \
+  --label 1999.137.2 \
+  --foreground-threshold 1 \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.3_full.tif" \
+  --label 1999.137.3 \
+  --foreground-threshold 1 \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+```
+
+Each exited `0`. `record` is `FragmentOutlineRevision`. `epistemic_class` is `interpretation`. `producer` is `machine`. `frame` is `source_pixels`. `envelope.algorithm_name` is `fragment_outline`. `envelope.algorithm_version` is `1`. `envelope.model_hash` is `absent`. The envelope omits `random_seed`. `envelope.decoder_name` is `lossless_tiff` and `envelope.decoder_version` is `1`. The parameter blob on each file is:
+
+```json
+{"enclosed_background_treatment":"fill_without_4_interior","foreground_threshold":1}
+```
+
+`parameter_hash` is `sha256:8cc20c79e705c5e12f88807f543dc64f3aa12d64314393c6da29dd2a4e23d0cd`.
+
+The rule fills an enclosed 4-connected background component when that component does not contain a pixel together with its four edge neighbors. On these files the enclosed zeros measured in the first retry are of that shape, including the largest components of 10 and 11 pixels. The hole check then passes. The outer boundary is the boundary of the threshold-1 mask. The mount is darker than the cutting and is not zero, so the mount stays foreground. Each polygon meets the image border. It is an interpretation of that mask. It is the border of the frame, with one-pixel steps where a border sample is background. It is not a torn edge of the cutting.
+
+| Accession | Pixels | Vertices | Outline id | Corners in the polygon |
+| --- | --- | --- | --- | --- |
+| `1999.137.1` | 1252 by 2048 | 13 | `b826be94-07bc-5d52-81f1-9cd77fa3ceff` | `(0, 0)` and `(1251, 2047)` |
+| `1999.137.2` | 1838 by 1536 | 58 | `497bd93b-ce9a-529b-a97c-e8f03cdb3bf2` | `(0, 0)` and `(1837, 1535)` |
+| `1999.137.3` | 1536 by 1701 | 225 | `a73a98a3-31da-5cc3-8dd1-18269f8328fe` | `(0, 0)` and `(1535, 1700)` |
+
+The thirteen vertices of `1999.137.1` are `(0, 0)`, `(177, 0)`, `(178, 1)`, `(179, 0)`, `(1045, 0)`, `(1046, 1)`, `(1047, 0)`, `(1251, 0)`, `(1251, 981)`, `(1250, 982)`, `(1251, 983)`, `(1251, 2047)`, `(0, 2047)`. The other two polygons are the same kind of border walk. Their vertex lists stay in the command stdout and are not copied here.
+
+```bash
+uv run prw rank \
+  --image 1999.137.1 "$LEAF/1999.137.1_full.tif" \
+  --image 1999.137.2 "$LEAF/1999.137.2_full.tif" \
+  --image 1999.137.3 "$LEAF/1999.137.3_full.tif" \
+  --foreground-threshold 1 \
+  --enclosed-background-treatment fill_without_4_interior \
+  --claimed-ppi 400 \
+  --code-version "$CODE"
+```
+
+Exit `1`. `record` is `FailedPairwiseJoin`. `status` is `failed`. The object has no `joins` key. `claimed_resolution.evidence_description` is `claimed resolution`. `claimed_resolution.claimed_resolution_ppi` is `400.0`. `claimed_resolution.calibration` is `absent`. The claim envelope's algorithm is `claimed_resolution_scale` version `1`. Its parameter blob is `{"claimed_resolution_ppi":400.0,"evidence_description":"claimed resolution","populates_calibration":false}`. `model_hash` is `absent`. `random_seed` is omitted. The claim id is `f2626055-8328-58cd-aad0-58f680178d2e`. Its three source hashes are the table digests. `pixels_per_mm` was not printed. `--pixels-per-mm` was not passed. The catalogue size "Each leaf: 17.6 x 9 cm" was not passed. The TIFF header was not read into the claim. The failed join `run_id` includes a random `attempt_id` and is not copied here.
+
+`prw-review` was not opened. There is no join list to smoke.
+
+No further rule was added after this result. The outlines are the frames. A mount-exclusion pass was not stacked on the treatment. The ranker, the hole check, and the multiple-component check were not loosened. No join hypothesis was invented. The catalogue groups these cuttings. This retry does not say they are torn mates.
 
 ## Source and license
 
@@ -29,9 +104,11 @@ The Cleveland catalogue groups these three cuttings under accession `1999.137`. 
 
 `prw verify` ids were `ce4c02c3-7d7a-559d-a9b9-8f5750beadfd`, `f3097b91-92dc-5cfa-92d8-c23d9354647e`, and `1f062ad6-3b3e-5894-9f93-179e49ef958b`.
 
-- **Header claim.** On each file, tags 282 and 283 are the rational `838860800/2097152`, which is 400. Tag 296 is absent. The TIFF default unit when that tag is absent is the inch, so the header claim is 400 pixels per inch. `claimed_resolution_ppi` in the sidecars is `400`. `pixels_per_mm` and `uncertainty` are `absent`. The header claim was not passed to the CLI. The component records also state a size, "Each leaf: 17.6 x 9 cm". That sentence was not passed to the CLI.
+- **Header claim.** On each file, tags 282 and 283 are the rational `838860800/2097152`, which is 400. Tag 296 is absent. The TIFF default unit when that tag is absent is the inch, so the header claim is 400 pixels per inch. `claimed_resolution_ppi` in the sidecars is `400`. `pixels_per_mm` and `uncertainty` are `absent`. `prw` does not read those tags. The first retry did not pass the claim. The second retry passed `400` only as `--claimed-ppi`. The component records also state a size, "Each leaf: 17.6 x 9 cm". That sentence was not passed to the CLI.
 
-Each file is classic TIFF, little-endian (`II*\x00`), 8-bit RGB, compression 1 (none). `prw verify` does not read those tags. Pixel commands got past decode: the failure below is `FailedSegmentation`, which is the record after a raster exists.
+Each file is classic TIFF, little-endian (`II*\x00`), 8-bit RGB, compression 1 (none). `prw verify` does not read those tags. Pixel commands got past decode. The first retry's failure below is `FailedSegmentation`, which is the record after a raster exists.
+
+## First retry
 
 ## Commands
 
@@ -105,10 +182,10 @@ The hole check, the multiple-component check, and the ranker were left as they a
 
 ## What was not added
 
-`prw rank` still requires a scale before it can emit a millimetre join, and it still has no labeled claimed-resolution flag. This retry never reached that step. Adding the flag, or passing `400 / 25.4` through `--pixels-per-mm`, would not create an outline. Passing the header claim through `--pixels-per-mm` would record it as a caller-supplied measurement. That was not done. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A file-header resolution still does not populate calibration.
+This paragraph is the first retry. `prw rank` on that checkout required a scale before it could emit a millimetre join, and that checkout had no labeled claimed-resolution flag. The first retry never reached that step. Adding the flag, or passing `400 / 25.4` through `--pixels-per-mm`, would not have created an outline on that checkout. Passing the header claim through `--pixels-per-mm` would have recorded it as a caller-supplied measurement. That was not done. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A file-header resolution does not populate calibration. The [second retry](#second-retry) later added the labeled claim and still left calibration absent.
 
 No algorithm version changed. No benchmark comparison was published. No `BenchmarkLabel` row was added or edited.
 
 ## What stays open
 
-[Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).
+The second retry's outlines are interpretations of the threshold mask, and they follow the image border. The rank list is empty. [Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).
