@@ -182,6 +182,8 @@ Exit `0`. `frame` stays `source_pixels`. `envelope.algorithm_name` stays `fragme
 
 `--enclosed-background-treatment fill_without_4_interior` fills an enclosed background component that does not contain a pixel and its four edge neighbors. The outline stays an interpretation. The parameter blob names `enclosed_background_treatment`. Omit the flag and the blob stays `foreground_threshold` alone. A component that does contain that element still fails as `hole`.
 
+`--border-mount-treatment not_above_frame_split` reclassifies, as background, each sample that is 4-connected to the image frame through samples at or below the frame's own Otsu split. The split is computed from the one-pixel frame. It is not a caller-chosen ceiling. Samples above the split stay foreground, including where a brighter cutting meets the image edge. The outline stays an interpretation. The parameter blob names `border_mount_treatment`. Omit the flag and the threshold mask is unchanged. The two treatments are independent. Passing both names both in the blob, and the mount reclassification runs first. A second foreground component, such as a bright speck in the mount, still fails as `multiple_components`.
+
 One scale flag without the other exits `2`. Stdout is empty. Stderr contains `pixels_per_mm and uncertainty are supplied together.`
 
 A checksum mismatch prints `IntegrityFailure` and no polygon:
@@ -241,7 +243,7 @@ The pair is the first and third fragment names in sorted order. With lighting va
 
 `$BENCHMARKS/labels.json` is byte-identical to the file `generate` wrote.
 
-Omit the scale pair and the process exits `1` with `record` `FailedPairwiseJoin` and `status` `failed`. That object has no `joins` key. `--claimed-ppi 400` is the same refusal, with `claimed_resolution.calibration` `absent` and `claimed_resolution.evidence_description` `claimed resolution`. That object has no `joins` key and no `pixels_per_mm`. `recall`, `assemble`, `assembly-rank`, `placement-error`, and `join-presence` reject `--claimed-ppi` with exit `2` and `A claimed resolution does not populate calibration.` Passing the label file as an image exits `2`, prints no JSON, and writes `A BenchmarkLabel join file is not a rank path.` on stderr:
+Omit the scale pair and the process exits `1` with `record` `FailedPairwiseJoin` and `status` `failed`. That object has no `joins` key. `--claimed-ppi 400` is the same refusal, with `claimed_resolution.calibration` `absent` and `claimed_resolution.evidence_description` `claimed resolution`. That object has no `joins` key and no `pixels_per_mm`. `--border-mount-treatment` and `--enclosed-background-treatment` are segmentation parameters on this command. They do not supply a scale. `recall`, `assemble`, `assembly-rank`, `placement-error`, and `join-presence` reject `--claimed-ppi` with exit `2` and `A claimed resolution does not populate calibration.` Passing the label file as an image exits `2`, prints no JSON, and writes `A BenchmarkLabel join file is not a rank path.` on stderr:
 
 ```bash
 uv run prw rank \

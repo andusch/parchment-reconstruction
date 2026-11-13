@@ -7,6 +7,7 @@ Rank joins prints pairwise join hypotheses in `physical` score order. The comman
 - `rank-order` prints `physical_join_order` for two seeded fragments.
 - `rank-unscaled` fails when the scale pair is omitted.
 - `rank-claimed-ppi` fails the same way when the only scale flag is `--claimed-ppi`.
+- `rank-border-mount` on this full-bleed seed fails segmentation before a join list.
 - `rank-refuse-label` refuses `labels.json` as an image path.
 - `rank-duplicate-raster` refuses two copies of one raster.
 - `rank-missing` reports a fragment name that is not in the image directory.
@@ -15,6 +16,7 @@ Rank joins prints pairwise join hypotheses in `physical` score order. The comman
 
 - Run `prw rank --image LABEL PATH --image LABEL PATH --foreground-threshold N --code-version CODE --pixels-per-mm N --uncertainty N` in a terminal. Repeat `--image` once per fragment.
 - Pass `--claimed-ppi N` without the measurement pair to record a claim that does not scale the join.
+- Pass `--border-mount-treatment not_above_frame_split` to apply that segmentation rule. It does not supply a scale.
 
 ## Driving it with verify-prw
 
@@ -35,16 +37,18 @@ SORTED_B=$(printf '%s\n' "$IMAGES"/fragment-*.tif | sort | sed -n '2p')
 - **Label file is unchanged.** `shasum -a 256 "$BENCHMARKS/labels.json"` prints the same digest as the first reading.
 - **Omit the scale.** Run the rank command with `--step unscaled` and without `--pixels-per-mm` and `--uncertainty`. Exit code `1`. The JSON `record` is `FailedPairwiseJoin` and `status` is `failed`. The object has no `joins` key.
 - **Pass a claimed resolution.** Run `uv run python .cursor/skills/verify-prw/verify_prw.py run --run "$RUN_ID" --feature rank-joins --entry "prw rank --claimed-ppi" --step claimed-ppi -- rank --image piece-a "$FRAGMENT_A_PATH" --image piece-b "$FRAGMENT_B_PATH" --foreground-threshold 1 --code-version "$CODE" --claimed-ppi 400`. Exit code `1`. The JSON `record` is `FailedPairwiseJoin` and `status` is `failed`. The object has no `joins` key. `claimed_resolution.calibration` is `absent`. `claimed_resolution.evidence_description` is `claimed resolution`. Stdout does not contain `pixels_per_mm` or `physical_join_order`.
+- **Pass the border-mount treatment.** Run `uv run python .cursor/skills/verify-prw/verify_prw.py run --run "$RUN_ID" --feature rank-joins --entry "prw rank --border-mount-treatment" --step border-mount -- rank --image piece-a "$FRAGMENT_A_PATH" --image piece-b "$FRAGMENT_B_PATH" --foreground-threshold 1 --code-version "$CODE" --border-mount-treatment not_above_frame_split --claimed-ppi 400`. Exit code `1`. The JSON `record` is `FailedSegmentation` and `kind` is `no_foreground`. The object has no `joins` key and no `polygon` key. `claimed_resolution.calibration` is `absent`. Stdout does not contain `physical_join_order`.
 - **Pass the label file as an image.** Run `uv run python .cursor/skills/verify-prw/verify_prw.py run --run "$RUN_ID" --feature rank-joins --entry "prw rank labels.json" --step refuse-label -- rank --image piece-a "$BENCHMARKS/labels.json" --foreground-threshold 1 --code-version "$CODE" --pixels-per-mm 10 --uncertainty 0.1`. Exit code `2`. stdout is empty. stderr contains `BenchmarkLabel join file`. The label digest is still the first digest.
 - **Rank two copies of one raster.** Run `uv run python .cursor/skills/verify-prw/verify_prw.py run --run "$RUN_ID" --feature rank-joins --entry "prw rank two copies of one raster" --step duplicate-raster -- rank --image piece-a "$SORTED_A" --image piece-b "$SORTED_B" --foreground-threshold 1 --code-version "$CODE" --pixels-per-mm 10 --uncertainty 0.1`. Exit code `2`. stdout is empty. stderr contains `A join cites two distinct edge ids.`
 - **Ask for a missing name.** Run `uv run python .cursor/skills/verify-prw/verify_prw.py run --run "$RUN_ID" --feature rank-joins --entry "prw rank missing image" --step missing -- rank --image piece-a "$IMAGES/fragment-0.tif" --image piece-b "$FRAGMENT_B_PATH" --foreground-threshold 1 --code-version "$CODE" --pixels-per-mm 10 --uncertainty 0.1`. Exit code `2`. stdout is empty. stderr contains `Fragment files:` and every name on the doctor `fragments` line. stderr does not contain `Traceback`.
-- **Proof.** The evidence directory contains `order`, `unscaled`, `claimed-ppi`, `refuse-label`, `duplicate-raster`, and `missing`.
+- **Proof.** The evidence directory contains `order`, `unscaled`, `claimed-ppi`, `border-mount`, `refuse-label`, `duplicate-raster`, and `missing`.
 
 ## Gotchas
 
 - The pool flag is repeated `--image LABEL PATH`. A positional path exits `2` and names `--image` as required.
 - Omitting the scale pair prints `FailedPairwiseJoin`. That is a completed failure record, not an empty ranking.
 - `--claimed-ppi 400` is the same refusal. `calibration` is `absent`. The number is not a measured `pixels_per_mm`. `recall`, `assemble`, `assembly-rank`, `placement-error`, and `join-presence` reject that flag with exit `2` and `A claimed resolution does not populate calibration.` Those refusals are in those commands' feature files.
+- `--border-mount-treatment not_above_frame_split` is a segmentation parameter. On this seed the fragment fills the frame, so rank stops with `FailedSegmentation` kind `no_foreground` and prints no joins. The flag does not supply `pixels_per_mm`.
 - `labels.json` contains join rows. Rank refuses it. Do not open it to judge whether the printed order is the correct join.
 - On this seed the exported pair is two distinct rasters and the list has 32 joins. Sorted by file name, the first and second files are one raster twice. That pair is the `duplicate-raster` step. The first and third sorted names are the distinct pair `Load synthetic pair` ranks.
 - Rank does not rewrite `labels.json`. The `shasum` before and after is the observation that it stayed put.

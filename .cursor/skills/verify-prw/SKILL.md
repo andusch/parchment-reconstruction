@@ -1,13 +1,13 @@
 ---
 name: verify-prw
-description: Drive the parchment-workbench headless CLI (prw) and the review window (prw-review) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying any prw command (agree, assemble, assembly-rank, edge, frame, generate, join-presence, placement-error, provenance, rank, recall, segment, verify), the flags --claimed-ppi and --enclosed-background-treatment, provenance output, or the offscreen review window, or when a change to those commands needs a user-level proof.
+description: Drive the parchment-workbench headless CLI (prw) and the review window (prw-review) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying any prw command (agree, assemble, assembly-rank, edge, frame, generate, join-presence, placement-error, provenance, rank, recall, segment, verify), the flags --claimed-ppi, --enclosed-background-treatment, and --border-mount-treatment, provenance output, or the offscreen review window, or when a change to those commands needs a user-level proof.
 ---
 
 # Verify parchment-workbench
 
 The surfaces this skill drives are the headless CLI and the review window. `prw` and `python -m prw.cli` both call `prw.cli:main`. `prw-review` and `python -m prw.review_window` both call `prw.review_window:main`. That window blocks in the Qt event loop and prints nothing. The review-window feature launches the same entry on `QT_QPA_PLATFORM=offscreen` through `drive_review.py`, which calls `main`, reads the widgets, and exits. There is no URL and no port. Do not report a library call or a pytest as this proof.
 
-Command names are unfrozen. Drive the commands below as they are. Every name on the doctor `commands` line has a feature file. `prw-review` is the review-window feature. `--claimed-ppi` and `--enclosed-background-treatment` are on the USAGE paths in the segment, rank, recall, and assembly feature files. A run that skips a feature file has not verified that command.
+Command names are unfrozen. Drive the commands below as they are. Every name on the doctor `commands` line has a feature file. `prw-review` is the review-window feature. `--claimed-ppi` and `--enclosed-background-treatment` are on the USAGE paths in the segment, rank, recall, and assembly feature files. `--border-mount-treatment` is on the segment and rank feature files. A run that skips a feature file has not verified that command.
 
 Run every helper command below from the checkout root, so `uv run` selects this project.
 
