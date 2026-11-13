@@ -144,7 +144,7 @@ What abbreviation policy applies to character error rate?
 Storage is Unicode NFC. Comparison and matching may strip accents and normalize final sigma, and storage never does. Polytonic Greek and abbreviations still change the character count. A policy chosen after scoring changes the metric.
 
 - Options: abbreviations scored as written; abbreviations expanded before scoring; a written policy that freezes one of these before the first reportable run.
-- Blocks: reporting character error rate. P5 writes no character-error number until the abbreviation policy is frozen. NFC storage does not by itself make the number reportable.
+- Blocks: reporting character error rate. P5 writes no character-error number until the abbreviation policy is frozen. NFC storage does not by itself make the number reportable. [ADR-0010](adr/0010-local-greek-htr-runtime.md) records the model card's cited Ancient Greek figures and leaves this question open.
 
 ### Q-SCI-17
 
