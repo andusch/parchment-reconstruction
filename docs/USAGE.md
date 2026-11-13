@@ -241,7 +241,7 @@ uv run prw rank \
 
 Recall writes a new report under the benchmarks directory. It reads `labels.json` only for that comparison. `--k` is the prefix length you declare before the run.
 
-Map each pool label to the fixture fragment id from the manifest. The label is the same word you passed to `--image`:
+Map each pool label to the fixture fragment id from the manifest. The label is the same word you passed to `--image`. The command below uses the section 2 pair: the first and third fragment names in sorted order. On this leaf those files are `fragment-1ff770d6-b967-513e-a5cb-e8386ba1727c.tif` and `fragment-82ee214b-5d6c-56ce-b454-b926130e8601.tif`, and `$PIECE_A_ID` and `$PIECE_B_ID` are the fixture ids in those file names:
 
 ```bash
 uv run prw recall \
@@ -259,11 +259,13 @@ uv run prw recall \
 
 Exit `0`. `k` is `1`. `metric` is `join_recall_at_k`. `algorithm_name` is `pairwise_rigid_join`. `recall` is `0.0`. `recall_list` has four entries, and every `status` is `absent`. `reference` is `frozen kind: join row`. `does_not_measure` is `a historical join on real parchment`. `previous_report` is `absent` on the first report. The new file is `$BENCHMARKS/join_recall/join-recall-0001.json`. `labels.json` and `provenance.json` are byte-identical to the files `generate` wrote. The TIFF files are unchanged.
 
-`recall` is the fraction of frozen synthetic joins that appear in the top K. These two fragment files are not one of those frozen pairs, so the fraction is zero. That zero is the measurement for this pool.
+`recall` is the fraction of frozen synthetic joins that appear in the top K. This correspondence maps the pool onto fixture ids `1ff770d6-b967-513e-a5cb-e8386ba1727c` and `82ee214b-5d6c-56ce-b454-b926130e8601`. That id pair is not a frozen join, so the fraction is zero. That zero is the measurement for this pool.
+
+With lighting variation `0` the other two fragment files repeat those two rasters under different fixture ids. The verify-prw doctor export binds `$FRAGMENT_A` and `$FRAGMENT_B` to the first two fragment files in manifest order, `fragment-1ff770d6-b967-513e-a5cb-e8386ba1727c.tif` and `fragment-d7a93980-e44f-5af1-b04e-662485e17740.tif`. Those are distinct rasters. `fragment-d7a93980-e44f-5af1-b04e-662485e17740.tif` is the same pixels as `fragment-82ee214b-5d6c-56ce-b454-b926130e8601.tif`, so a correspondence onto the doctor-exported ids maps this pool onto a frozen join. That command reports `recall` `0.25`, with three `absent` statuses and one `present`.
 
 A later recall writes `$BENCHMARKS/join_recall/join-recall-0002.json` and leaves `join-recall-0001.json` in place.
 
-Omit `--correspondence` and the report is still written. Every `status` is `absent` and `recall` is `0.0`, because the ranked ids were not mapped onto the fixture ids. The mapped command above also prints `0.0`, because this pair is not a frozen join.
+Omit `--correspondence` and the report is still written. Every `status` is `absent` and `recall` is `0.0`, because the ranked ids were not mapped onto the fixture ids. The mapped command above also prints `0.0`, because the first and third sorted fixture ids are not a frozen join.
 
 ## 9. Search assemblies
 
