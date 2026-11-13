@@ -1,11 +1,11 @@
 # Product requirements
 
 - Status: Draft for review
-- Phase: P0 (documentation only)
+- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, and a thin review window for ranked joins. P5 HTR is hard-blocked. The later end-state below is not shipped.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Open-question index: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)
 
-P0 specifies the product. It does not implement the functional requirements below.
+These requirements describe the product. The P0 exit was the documentation set. The tree now contains `src/` and the CLI named in [USAGE.md](USAGE.md). That software is the headless path through assembly reports, plus the thin join-review window. It is not the later end-state in the workflow below.
 
 ## Problem
 
@@ -68,13 +68,11 @@ Step 11 of the workflow writes one of the two bundles in [ADR-0012](adr/0012-exp
 
 The first product does not claim a recovered original, host cloud collaboration, or publish an edition by itself. Non-Greek HTR, rolls, 3D geometry, and multispectral capture are outside the first product. Multispectral capture is [Q-SCI-18](SCAN_PROTOCOL.md#q-sci-18). Rolls and irregular sheets are [Q-SCI-01](ALGORITHM.md#q-sci-01).
 
-P0 delivers none of FR-1 through FR-6 as software.
+The checkout's software is checksum verification, coordinate frames, provenance envelopes, synthetic fixtures, segmentation, outline agreement, chord edges, pairwise join ranking, join recall, assembly search, assembly rank, placement error, end-to-end join presence, and a thin window that lists ranked joins. Ancient Greek HTR, the language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. FR-1 through FR-6 remain the full workflow above. That slice is the current tree.
 
 ## Success criteria
 
-P0 succeeds when the documents in the [roadmap](ROADMAP.md#p0) exist, question IDs match across documents, ADR statuses are explicit, and no application tree exists.
-
-The later product succeeds when a scholar can complete the workflow above on local files, every displayed reading shows text status and epistemic class, and an export lets a reviewer recompute the recorded checksums and see the hypothesis labels. Numeric accuracy targets belong to [EVALUATION.md](EVALUATION.md) and stay unmet until the named benchmarks exist.
+P0 succeeded when the documents in the [roadmap](ROADMAP.md#p0) exist, question IDs match across documents, and ADR statuses are explicit. The application tree now exists. The later product succeeds when a scholar can complete the workflow above on local files, every displayed reading shows text status and epistemic class, and an export lets a reviewer recompute the recorded checksums and see the hypothesis labels. Numeric accuracy targets belong to [EVALUATION.md](EVALUATION.md) and stay unmet until the named benchmarks exist.
 
 ## Working assumptions
 

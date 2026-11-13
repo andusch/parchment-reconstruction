@@ -1,10 +1,12 @@
 # Roadmap
 
 - Status: Draft for review
-- Phase: P2
+- Phase: P4 commands are in the tree. P5 is hard-blocked.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 Phases are ordered by dependency. This document sets no dates. From P1 onward, a phase that changes a stored schema includes a migration and migration tests. A phase that changes an algorithm includes a benchmark comparison, as defined in [EVALUATION.md](EVALUATION.md).
+
+P0, P1, P2, and P3 tickets are Done. P4 tickets are Done. Assembly search, assembly rank, placement error, and end-to-end join presence are headless commands. P5 HTR remains hard-blocked. P6, P7, and P8 stay later. The thin join-review window recorded under P7 does not meet that phase's exit criteria. A language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. They are not in this tree.
 
 Closing a question that touches public APIs, project format, privacy policy, or evidence semantics requires an ADR and an explicit decision. See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
 
@@ -26,6 +28,8 @@ Closing a question that touches public APIs, project format, privacy policy, or 
 
 **Blocked by.** Nothing further inside P0. Questions closed by an accepted ADR stay closed. The remaining questions in the index stay open on exit.
 
+Tickets [P0-01](../tasks/P0-01.md) through [P0-06](../tasks/P0-06.md) are Done.
+
 ## P1
 
 **Goal.** Add the package, ingest, checksum verification, coordinate frames, the provenance envelope, a synthetic fixture generator, and a CLI.
@@ -37,6 +41,8 @@ Closing a question that touches public APIs, project format, privacy policy, or 
 **Blocked by.** [Q-ENG-01](ARCHITECTURE.md#q-eng-01) before a project format is accepted. Millimetre origin and axes are [ADR-0011](adr/0011-frame-conventions.md). [Q-PRD-02](PRD.md#q-prd-02) may be followed only as a labeled working assumption.
 
 Packaging ([Q-ENG-02](ARCHITECTURE.md#q-eng-02)) is closed by [P1-01](../tasks/P1-01.md). The TIFF library ([Q-ENG-05](ARCHITECTURE.md#q-eng-05)) is closed by [ADR-0014](adr/0014-stdlib-lossless-tiff.md).
+
+Tickets [P1-01](../tasks/P1-01.md) through [P1-08](../tasks/P1-08.md) are Done.
 
 ## P2
 
@@ -60,7 +66,7 @@ Tickets: [P2-01](../tasks/P2-01.md) outline records, [P2-02](../tasks/P2-02.md) 
 
 **Blocked by.** [Q-SCI-07](ALGORITHM.md#q-sci-07) only if a triple-fragment type is required. Pairwise joins may proceed under the labeled proposal. [Q-SCI-19](ALGORITHM.md#q-sci-19) blocks using hair and flesh side. [Q-PRD-07](PRD.md#q-prd-07) blocks a capacity or performance target.
 
-Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02.md) join records, [P3-03](../tasks/P3-03.md) chord edges, [P3-04](../tasks/P3-04.md) pairwise proposals, [P3-05](../tasks/P3-05.md) physical rank, [P3-06](../tasks/P3-06.md) outline invalidation, [P3-07](../tasks/P3-07.md) join recall at K, and [P3-08](../tasks/P3-08.md) headless CLI.
+Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02.md) join records, [P3-03](../tasks/P3-03.md) chord edges, [P3-04](../tasks/P3-04.md) pairwise proposals, [P3-05](../tasks/P3-05.md) physical rank, [P3-06](../tasks/P3-06.md) outline invalidation, [P3-07](../tasks/P3-07.md) join recall at K, and [P3-08](../tasks/P3-08.md) headless CLI. Those tickets are Done.
 
 **Pilot-06.** [PILOT-06](../tasks/PILOT-06.md) records one synthetic pool whose `prw rank` list has join hypotheses, and the `prw-review` flags that load it. The operator note is [pilot-multi-fragment-pool.md](pilot-multi-fragment-pool.md). The rows stay hypotheses. The recall exit criterion above is unchanged.
 
@@ -76,7 +82,7 @@ Tickets: [P3-01](../tasks/P3-01.md) catalogued fragments, [P3-02](../tasks/P3-02
 
 **Blocked by.** [Q-SCI-02](ALGORITHM.md#q-sci-02), [Q-SCI-03](ALGORITHM.md#q-sci-03), and [Q-SCI-08](ALGORITHM.md#q-sci-08) for any scientific claim beyond the synthetic fixture. [Q-SCI-01](ALGORITHM.md#q-sci-01) and [Q-SCI-20](ALGORITHM.md#q-sci-20) block claims outside the rigid-leaf proposal. [Q-PRD-03](PRD.md#q-prd-03) blocks face constraints.
 
-Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) screening events, [P4-03](../tasks/P4-03.md) assembly rank, [P4-04](../tasks/P4-04.md) rigid search, [P4-05](../tasks/P4-05.md) placement error, [P4-06](../tasks/P4-06.md) end-to-end join presence, and [P4-07](../tasks/P4-07.md) headless CLI.
+Tickets: [P4-01](../tasks/P4-01.md) page placements, [P4-02](../tasks/P4-02.md) screening events, [P4-03](../tasks/P4-03.md) assembly rank, [P4-04](../tasks/P4-04.md) rigid search, [P4-05](../tasks/P4-05.md) placement error, [P4-06](../tasks/P4-06.md) end-to-end join presence, and [P4-07](../tasks/P4-07.md) headless CLI. Those tickets are Done. The headless commands are `assemble`, `assembly-rank`, `placement-error`, and `join-presence`.
 
 ## P5
 

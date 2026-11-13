@@ -13,7 +13,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Drive only the instance this launch created. A second run id is a second instance. The same run id refuses a concurrent drive.
 - There is no port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
 - `prw-review` is a separate console script. It is not one of the names on the `commands` line. The review-window feature drives it. `--program` defaults to `prw`.
-- `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `join-presence`, `placement-error`, and `recall` are implemented commands and have no feature file. Do not report them as verified.
+- Every name on the `commands` line has a feature file. `--claimed-ppi` and `--enclosed-background-treatment fill_without_4_interior` are covered on the USAGE paths in the segment, rank, recall, and assembly features. Drive the feature file. Do not report a command as verified through a different command.
 
 ## Driving conventions
 
@@ -47,8 +47,16 @@ Keep implementation details out of the map. Name only user paths, stable handles
 
 - [Verify a source image](./verify-source.md) covers a matching checksum, a mismatch, a non-TIFF, and a missing path.
 - [Generate a synthetic leaf](./generate-fixtures.md) covers writing a leaf, repeating it, and refusing a project-directory destination.
-- [Segment a fragment](./segment-outline.md) covers a pixel outline, a millimetre outline, a checksum failure, and a missing path.
+- [Segment a fragment](./segment-outline.md) covers a pixel outline, a millimetre outline, `--claimed-ppi`, `--enclosed-background-treatment fill_without_4_interior`, a checksum failure, and a missing path.
 - [Segment a lossless master](./segment-lossless-master.md) covers a non-fixture TIFF outline, a rank of two such files, and unchanged bytes.
-- [Rank joins](./rank-joins.md) covers physical order, a missing scale, a BenchmarkLabel path, two copies of one raster, and a missing image.
+- [Name a millimetre frame](./frame-polygon.md) covers the centroid origin of a caller square.
+- [Trace chord edges](./edge-chords.md) covers millimetre chords and a missing scale.
+- [Rank joins](./rank-joins.md) covers physical order, a missing scale, `--claimed-ppi`, a BenchmarkLabel path, two copies of one raster, and a missing image.
+- [Write join recall](./recall-joins.md) covers the sorted-id pair, the doctor-exported pair, and a rejected `--claimed-ppi`.
+- [Score an outline](./agree-outline.md) covers a caller polygon and a refused BenchmarkLabel path.
+- [Search assemblies](./assemble-search.md) covers a kept pair, a missing N, a missing page rectangle, and a rejected `--claimed-ppi`.
+- [Rank assemblies](./assembly-rank.md) covers physical assembly order and a rejected `--claimed-ppi`.
+- [Write placement error](./placement-error.md) covers the first placement-error report and a rejected `--claimed-ppi`.
+- [Write join presence](./join-presence.md) covers the first end-to-end join-presence report and a rejected `--claimed-ppi`.
 - [Record provenance](./provenance-envelope.md) covers a deterministic envelope, a seeded envelope, and a rejected parameter.
 - [Review ranked joins](./review-window.md) covers help, an offscreen list of hypotheses, Load synthetic pair, a BenchmarkLabel path, and a missing image.

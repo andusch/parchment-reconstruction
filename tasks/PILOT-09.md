@@ -1,6 +1,6 @@
 # Task ticket
 
-- Status: Blocked
+- Status: Recorded. This ticket is the blocked first retry. [PILOT-10](PILOT-10.md) is Done.
 - Phase: Pilot, after the review window
 
 A **yes** on any stop-and-ask field means the ticket waits until an ADR and an explicit decision exist. Open questions are indexed in [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md). The glossary is in [DATA_MODEL.md](../docs/DATA_MODEL.md#glossary).
@@ -15,11 +15,11 @@ Pilot. [PILOT-04](PILOT-04.md) recorded one Cleveland leaf. [PILOT-06](PILOT-06.
 
 ## Problem
 
-`prw segment` at `--foreground-threshold 1` treats a non-zero black mount as foreground. On a mounted cutting that mask encloses exact-zero samples, and the run is `FailedSegmentation` kind `hole`. `prw rank` also has no labeled way to pass a header ppi. The header value is `claimed_resolution_ppi`. It is not a calibrated scale.
+`prw segment` at `--foreground-threshold 1` treats a non-zero black mount as foreground. On a mounted cutting that mask encloses exact-zero samples, and this ticket's run is `FailedSegmentation` kind `hole`. This ticket added no labeled claimed-ppi flag and did not change segmentation. [PILOT-10](PILOT-10.md) is Done. It records `--claimed-ppi` and `--enclosed-background-treatment fill_without_4_interior`, and it records a second retry. That second retry is a separate outcome. The header value is `claimed_resolution_ppi`. It is not a calibrated scale.
 
 ## User or scientific outcome
 
-The three CC0 cuttings were checksummed and passed to `segment` and `rank`. Each segmentation is `FailedSegmentation` kind `hole`. The pool command prints no joins. The catalogue groups the cuttings. It does not say they are torn mates, and this ticket does not say that either. The recorded run is [pilot-cma-1999-137.md](../docs/pilot-cma-1999-137.md).
+The three CC0 cuttings were checksummed and passed to `segment` and `rank`. Each segmentation on this retry is `FailedSegmentation` kind `hole`. The pool command prints no joins. The catalogue groups the cuttings. It does not say they are torn mates, and this ticket does not say that either. The recorded run of this ticket is the first retry in [pilot-cma-1999-137.md](../docs/pilot-cma-1999-137.md). [PILOT-10](PILOT-10.md) is Done and records the second retry. This ticket keeps the first failure.
 
 ## Epistemic-class impact
 
@@ -27,7 +27,7 @@ no. No outline was stored. No join was stored. A hole failure is a failed run. I
 
 ## Stop and ask
 
-- Changes a public API: no. No flag was added.
+- Changes a public API: no. This ticket added no flag. [PILOT-10](PILOT-10.md) later added the unfrozen flags `--claimed-ppi` and `--enclosed-background-treatment`.
 - Changes the project format: no
 - Changes the privacy policy ([SECURITY_AND_PRIVACY.md](../docs/SECURITY_AND_PRIVACY.md)): no
 - Changes evidence semantics (text status, epistemic class, or the meaning of a hypothesis): no
@@ -38,7 +38,7 @@ none.
 
 ## Algorithm and benchmark impact
 
-none shipped. `fragment_outline` stays version `1`. The hole check and the ranker were not changed. No `BenchmarkLabel` row was added or edited. The leaf files are not under `benchmarks/`.
+none shipped on this ticket. `fragment_outline` stays version `1`. The hole check and the ranker were not changed. No `BenchmarkLabel` row was added or edited. The leaf files are not under `benchmarks/`. [PILOT-10](PILOT-10.md) is Done and is the ticket that records the treatment and the claim.
 
 An operator count, outside `prw`, removed border-connected samples at or below ceilings 32, 48, 64, 80, and 96 and still found more than one component and still found enclosed zeros. That count is in the pilot note. It was not committed as an algorithm, because it does not yield one outline and the next step would be a hole-check or component-check relaxation.
 
@@ -50,10 +50,10 @@ none.
 
 - [x] The 13 November 2026 terms pages and the object records still show CC0 for 1999.137 and for 1999.137.1–3. The three component TIFFs are outside Git. The pilot note records the URLs, the access date, the license, and the sha256 of the unchanged bytes.
 - [x] `prw verify` succeeds on each file. `prw segment` at `--foreground-threshold 1` exits 1 with `FailedSegmentation` kind `hole` on each file. `prw rank` on the three files exits 1 with that same record and does not print `joins`.
-- [ ] Mount-aware segmentation that returns one outline on these files, with the synthetic threshold-1 path unchanged. Not shipped. The mount is not the whole of the enclosed zeros, and the hole check was not relaxed.
-- [ ] A labeled claimed-ppi scale whose provenance says the scale is claimed resolution. Not shipped. There is no outline to scale, and 400 ppi was not passed through `--pixels-per-mm`.
-- [ ] A non-empty `physical_join_order`. Not produced.
-- [ ] A `prw-review` smoke of that list. Not run.
+- [ ] Mount-aware segmentation that returns one outline on these files, with the synthetic threshold-1 path unchanged. Not shipped on this ticket. The first retry stayed `FailedSegmentation` kind `hole`. The mount is not the whole of the enclosed zeros, and the hole check was not relaxed. [PILOT-10](PILOT-10.md) is Done and records the later treatment. That outcome stays in that ticket.
+- [ ] A labeled claimed-ppi scale whose provenance says the scale is claimed resolution. Not shipped on this ticket. There is no outline to scale on this retry, and 400 ppi was not passed through `--pixels-per-mm`. [PILOT-10](PILOT-10.md) is Done and records `--claimed-ppi`. The second retry's rank outcome stays in that ticket.
+- [ ] A non-empty `physical_join_order`. Not produced on this retry.
+- [ ] A `prw-review` smoke of that list. Not run on this retry.
 - [x] The diff contains no image bytes. 1951.314 was not cut. The group TIFF was not downloaded.
 
 ## Tests
