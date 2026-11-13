@@ -1,8 +1,9 @@
 # Cleveland 1999.137 retry
 
-- Status: Working note. The second retry returns one outline per file and emits no join list.
+- Status: Working note. The third retry is blocked. Segmentation fails and stores no outline.
 - First run: 13 November 2026, checkout `6f64d082be2de162876c4447a1d457bf08165bde` (merge of PR #18). That run is the section [First retry](#first-retry).
 - Second run: 13 November 2026, code version `77c4ff9dd48ff2f0e6639437b8a60e774d98e093`. That run is the section [Second retry](#second-retry).
+- Third run: 13 November 2026, code version `ce08a426236413031e14eccc5a341b58a27dbafe`. That run is the section [Third retry](#third-retry).
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On this machine that directory was `/home/ubuntu/prw-pilot/1999.137`. Text sidecars sit beside the files and are not in Git. [`.gitignore`](../.gitignore) ignores `*.tif` and `*.tiff`. The files were never under `data/`, `scans/`, or `real_data/`.
@@ -10,6 +11,71 @@ The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On 
 The Cleveland catalogue groups these three cuttings under accession `1999.137`. The object-page text read on this day does not say they are torn mates, and it does not say that an edge of one meets an edge of another. This note does not treat them as mates. It does not treat a join as a reconstruction. No join was emitted.
 
 [1951.314](pilot-first-run.md) was not opened. The group file `1999.137_full.tif` was not downloaded, and no whole leaf was cut to make a pool.
+
+## Third retry
+
+Code version passed to every pixel command: `ce08a426236413031e14eccc5a341b58a27dbafe`. That commit names `--border-mount-treatment not_above_frame_split`. The bytes, the license check, and the header claim are the same records as the [source table](#source-and-license). On this day the terms pages were read again, and the API records for `1999.137` and `1999.137.1`–`1999.137.3` still set `share_license_status` to `CC0`. `sha256sum` of the three files matched the table before the commands and again after them. The files were not edited.
+
+`CODE` below is `ce08a426236413031e14eccc5a341b58a27dbafe`. `LEAF` is `$HOME/prw-pilot/1999.137`.
+
+`prw verify` was run again on each file. Each exited `0`. `record` is `VerifiedBytes`. The ids are the same three ids as the first retry.
+
+The mount rule reclassifies, as background, each sample that is 4-connected to the one-pixel image frame through samples at or below that frame's Otsu split. The split is the maximum luminance of the darker class of the frame. A frame of one luminance uses that value. Samples above the split stop the flood. The rule is not a caller-chosen ceiling. It runs only when the flag is passed. `--enclosed-background-treatment fill_without_4_interior` is a separate flag. When both are passed, the mount reclassification runs first and the parameter blob names both rules. On a failed segmentation the CLI does not print that blob.
+
+One control, with the mount rule and without the fill, on `1999.137.1` only:
+
+```bash
+uv run prw segment "$LEAF/1999.137.1_full.tif" \
+  --label 1999.137.1 \
+  --foreground-threshold 1 \
+  --border-mount-treatment not_above_frame_split \
+  --code-version "$CODE"
+```
+
+Exit `1`. `record` is `FailedSegmentation`. `kind` is `multiple_components`. The object has no `polygon` key. The printed `run_id` includes a random `attempt_id` and is not copied here.
+
+The composition on each file:
+
+```bash
+uv run prw segment "$LEAF/1999.137.1_full.tif" \
+  --label 1999.137.1 \
+  --foreground-threshold 1 \
+  --border-mount-treatment not_above_frame_split \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.2_full.tif" \
+  --label 1999.137.2 \
+  --foreground-threshold 1 \
+  --border-mount-treatment not_above_frame_split \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.3_full.tif" \
+  --label 1999.137.3 \
+  --foreground-threshold 1 \
+  --border-mount-treatment not_above_frame_split \
+  --enclosed-background-treatment fill_without_4_interior \
+  --code-version "$CODE"
+```
+
+Each exited `1`. `record` is `FailedSegmentation`. `kind` is `multiple_components`. The object has no `polygon` key and no `parameter_blob` key. The component check is reported before the hole check, so this record does not say whether an enclosed background remained. No outline was stored. This retry has no polygon to compare with `(0, 0)` or with the far corner of the image. It does not describe a torn edge, and it does not describe a frame outline.
+
+```bash
+uv run prw rank \
+  --image 1999.137.1 "$LEAF/1999.137.1_full.tif" \
+  --image 1999.137.2 "$LEAF/1999.137.2_full.tif" \
+  --image 1999.137.3 "$LEAF/1999.137.3_full.tif" \
+  --foreground-threshold 1 \
+  --border-mount-treatment not_above_frame_split \
+  --enclosed-background-treatment fill_without_4_interior \
+  --claimed-ppi 400 \
+  --code-version "$CODE"
+```
+
+Exit `1`. `record` is `FailedSegmentation`. `kind` is `multiple_components`. The object has no `joins` key and no `polygon` key. The pool command stops on the first image. Each file, segmented alone, fails the same way. `claimed_resolution.evidence_description` is `claimed resolution`. `claimed_resolution.claimed_resolution_ppi` is `400.0`. `claimed_resolution.calibration` is `absent`. The claim envelope's algorithm is `claimed_resolution_scale` version `1`. Its parameter blob is `{"claimed_resolution_ppi":400.0,"evidence_description":"claimed resolution","populates_calibration":false}`. `parameter_hash` is `sha256:c99a1b862f72a5654cd0f8bea5f7a4e65e3a336bdd0064a2c83978f34c93b366`. `model_hash` is `absent`. `random_seed` is omitted. The claim id is `ee4cf79b-3a54-5fbf-a3bc-e8458c3a6418`. Its source hash is the digest of `1999.137.1` only, because the pool stops before the other two files. `pixels_per_mm` was not printed. `--pixels-per-mm` was not passed. The catalogue size "Each leaf: 17.6 x 9 cm" was not passed. The TIFF header was not read into the claim. The failed segmentation `run_id` includes a random `attempt_id` and is not copied here.
+
+`prw-review` was not opened. There is no join list to smoke.
+
+No further rule was added after this result. The component check, the hole check, and the ranker were not loosened. No join hypothesis was invented. The catalogue groups these cuttings. This retry does not say they are torn mates.
 
 ## Second retry
 
@@ -188,4 +254,4 @@ No algorithm version changed. No benchmark comparison was published. No `Benchma
 
 ## What stays open
 
-The second retry's outlines are interpretations of the threshold mask, and they follow the image border. The rank list is empty. [Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).
+The second retry's outlines are interpretations of the threshold mask, and they follow the image border. The rank list is empty. The third retry requested the frame-split mount rule, with the enclosed-background fill named on the same command. Each segmentation is `FailedSegmentation` kind `multiple_components`. No outline was stored, and no join was stored. [Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).

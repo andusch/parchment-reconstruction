@@ -17,6 +17,7 @@ from prw.joins import JoinHypothesis
 from prw.outline_agreement import polygon_iou
 from prw.synthetic_tear import (
     SyntheticLeaf,
+    _uncompressed_grayscale_tiff,
     fragment_polygon_in_source_pixels,
     generate_synthetic_leaf,
 )
@@ -393,6 +394,110 @@ def test_claimed_ppi_stays_a_claim_and_the_speckle_fill_is_labeled(
     assert failure["claimed_resolution"]["evidence_description"] == "claimed resolution"
     assert "physical_join_order" not in ranked.stdout
     assert "pixels_per_mm" not in ranked.stdout
+
+
+def _mounted_tiff(path: Path, *, width: int, height: int, x0: int) -> None:
+    samples = bytearray([20]) * (width * height)
+    for y_coord in range(2, height - 2):
+        for x_coord in range(x0, x0 + 4):
+            samples[y_coord * width + x_coord] = 180
+    path.write_bytes(_uncompressed_grayscale_tiff(width, height, bytes(samples)))
+
+
+def test_border_mount_treatment_is_named_and_rank_still_needs_a_scale(
+    tmp_path: Path,
+) -> None:
+    mounted = tmp_path / "mounted.tif"
+    _mounted_tiff(mounted, width=10, height=8, x0=2)
+    segmented = _run(
+        "segment",
+        str(mounted),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--border-mount-treatment",
+        "not_above_frame_split",
+        "--code-version",
+        "test-code",
+    )
+    assert segmented.returncode == 0, segmented.stderr
+    body = json.loads(segmented.stdout)
+    assert body["record"] == "FragmentOutlineRevision"
+    assert body["epistemic_class"] == "interpretation"
+    assert body["producer"] == "machine"
+    assert body["frame"] == "source_pixels"
+    assert body["polygon"] == [[2.0, 2.0], [5.0, 2.0], [5.0, 5.0], [2.0, 5.0]]
+    assert [0.0, 0.0] not in body["polygon"]
+    assert json.loads(body["envelope"]["parameter_blob"]) == {
+        "border_mount_treatment": "not_above_frame_split",
+        "foreground_threshold": 1,
+    }
+    assert body["envelope"]["algorithm_name"] == "fragment_outline"
+    assert body["envelope"]["algorithm_version"] == "1"
+    assert body["envelope"]["model_hash"] == "absent"
+    assert "random_seed" not in body["envelope"]
+    assert "correct_join" not in segmented.stdout
+
+    omitted = _run(
+        "segment",
+        str(mounted),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--code-version",
+        "test-code",
+    )
+    assert omitted.returncode == 0, omitted.stderr
+    plain = json.loads(omitted.stdout)
+    assert plain["polygon"][0] == [0.0, 0.0]
+    assert json.loads(plain["envelope"]["parameter_blob"]) == {
+        "foreground_threshold": 1
+    }
+
+    other = tmp_path / "mounted-b.tif"
+    _mounted_tiff(other, width=12, height=9, x0=3)
+    ranked = _run(
+        "rank",
+        "--image",
+        "piece-a",
+        str(mounted),
+        "--image",
+        "piece-b",
+        str(other),
+        "--foreground-threshold",
+        "1",
+        "--border-mount-treatment",
+        "not_above_frame_split",
+        "--enclosed-background-treatment",
+        "fill_without_4_interior",
+        "--claimed-ppi",
+        "400",
+        "--code-version",
+        "test-code",
+    )
+    assert ranked.returncode == 1, ranked.stderr
+    failure = json.loads(ranked.stdout)
+    assert failure["record"] == "FailedPairwiseJoin"
+    assert "joins" not in failure
+    assert failure["claimed_resolution"]["calibration"] == "absent"
+    assert "pixels_per_mm" not in ranked.stdout
+
+    rejected = _run(
+        "segment",
+        str(mounted),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--border-mount-treatment",
+        "ceiling_46",
+        "--code-version",
+        "test-code",
+    )
+    assert rejected.returncode == 2
+    assert rejected.stdout == ""
 
 
 def _first_fragment(images: Path) -> tuple[Path, list[str]]:

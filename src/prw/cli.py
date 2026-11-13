@@ -72,6 +72,7 @@ from prw.scale import (
 )
 from prw.segment import (
     FILL_WITHOUT_4_INTERIOR,
+    NOT_ABOVE_FRAME_SPLIT,
     FailedSegmentation,
     SegmentationLog,
     SegmentedOutline,
@@ -262,8 +263,22 @@ def _add_pool_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--foreground-threshold", type=int, required=True)
     parser.add_argument("--code-version", required=True)
     _add_enclosed_background_argument(parser)
+    _add_border_mount_argument(parser)
     _add_scale_arguments(parser)
     parser.add_argument("--minimum-edge-length-mm", type=float, default=0.0)
+
+
+def _add_border_mount_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--border-mount-treatment",
+        default=None,
+        choices=(NOT_ABOVE_FRAME_SPLIT,),
+        help=(
+            "Reclassify the border-connected darker side of the frame's "
+            "Otsu split as background. Omit to leave the threshold mask "
+            "unchanged."
+        ),
+    )
 
 
 def _add_enclosed_background_argument(parser: argparse.ArgumentParser) -> None:
@@ -285,6 +300,7 @@ def _add_segment_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--foreground-threshold", type=int, required=True)
     parser.add_argument("--code-version", required=True)
     _add_enclosed_background_argument(parser)
+    _add_border_mount_argument(parser)
 
 
 def _presented_bytes(path: Path) -> bytes:
@@ -854,6 +870,7 @@ def _segment_presented(
         enclosed_background_treatment=getattr(
             args, "enclosed_background_treatment", None
         ),
+        border_mount_treatment=getattr(args, "border_mount_treatment", None),
     )
 
 
