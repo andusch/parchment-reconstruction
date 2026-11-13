@@ -1,6 +1,6 @@
 # Task ticket
 
-- Status: Done
+- Status: Done. [PILOT-11](PILOT-11.md) records the later mount treatment and the third retry. This ticket's second retry is unchanged: one outline per file, each polygon follows the image border, and `prw rank` with `--claimed-ppi 400` is `FailedPairwiseJoin`.
 - Phase: Pilot, after the review window
 
 A **yes** on any stop-and-ask field means the ticket waits until an ADR and an explicit decision exist. Open questions are indexed in [OPEN_QUESTIONS.md](../docs/OPEN_QUESTIONS.md). The glossary is in [DATA_MODEL.md](../docs/DATA_MODEL.md#glossary).
@@ -23,7 +23,7 @@ The operator can pass `--enclosed-background-treatment fill_without_4_interior`.
 
 The operator can pass `--claimed-ppi`. The printed record says `claimed resolution`, `calibration` is `absent`, and the blob sets `populates_calibration` to false. The command does not read a TIFF header and does not store `pixels_per_mm`.
 
-On 1999.137.1–3 the treatment returns one outline per file. Each outline is an interpretation of the threshold mask, and each polygon follows the image border because the mount is foreground. `prw rank` with `--claimed-ppi 400` exits 1 with `FailedPairwiseJoin` and prints no joins. The catalogue groups the cuttings. It does not say they are torn mates, and this ticket does not say that either. The recorded run is [pilot-cma-1999-137.md](../docs/pilot-cma-1999-137.md).
+On 1999.137.1–3 the treatment returns one outline per file. Each outline is an interpretation of the threshold mask, and each polygon follows the image border because the mount is foreground. `prw rank` with `--claimed-ppi 400` exits 1 with `FailedPairwiseJoin` and prints no joins. The catalogue groups the cuttings. It does not say they are torn mates, and this ticket does not say that either. The recorded run is the second retry in [pilot-cma-1999-137.md](../docs/pilot-cma-1999-137.md). [PILOT-11](PILOT-11.md) is the later ticket. It records `--border-mount-treatment not_above_frame_split` and a third retry that stays `FailedSegmentation` kind `multiple_components`.
 
 ## Epistemic-class impact
 
