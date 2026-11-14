@@ -41,7 +41,7 @@ Agent rules that are not given their own ADR remain in force from [AGENTS.md](..
 | [0006](0006-append-only-hypotheses.md) | Append-only hypotheses | Accepted |
 | [0007](0007-project-persistence.md) | Project persistence | Proposed |
 | [0008](0008-rigid-rectangular-page.md) | Rigid rectangular page | Proposed |
-| [0009](0009-separate-score-channels.md) | Separate score channels | Proposed |
+| [0009](0009-separate-score-channels.md) | Separate score channels | Accepted |
 | [0010](0010-local-greek-htr-runtime.md) | Local Greek HTR runtime | Accepted |
 | [0011](0011-frame-conventions.md) | Frame conventions | Accepted |
 | [0012](0012-export-types.md) | Export types | Accepted |

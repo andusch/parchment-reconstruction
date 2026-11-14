@@ -99,7 +99,7 @@ Scores are incomparable across runs, across algorithms, and across hypothesis ty
 
 Rank is not a stored column. It is derived when a list is read. Inside one triple, consider only hypotheses that have a score in that channel, that either have no run or whose run status is `completed`, and whose current status is not `invalidated`. A higher score ranks first. Equal scores are ordered by the content-derived hypothesis id, ascending bytewise. A contested assembly stays in that order. An invalidated row is omitted. Filling a rank never writes the hypothesis row, and rank is not an input to its id.
 
-Fusion of channels is [Q-SCI-09](ALGORITHM.md#q-sci-09) and [ADR-0009](adr/0009-separate-score-channels.md). Propagating calibration uncertainty into `physical` scores is a Phase 6 requirement. P0 records the requirement and does not implement it.
+[P6-01](../tasks/P6-01.md) closed [Q-SCI-09](ALGORITHM.md#q-sci-09) and accepted [ADR-0009](adr/0009-separate-score-channels.md) option 2: a declared weighted sum in the parameter blob, with the channels still stored separately. This close-out does not implement the sum and does not add schema fields. Propagating calibration uncertainty into `physical` scores remains a Phase 6 requirement. P0 recorded that requirement and did not implement it.
 
 ## Forbidden fields
 
