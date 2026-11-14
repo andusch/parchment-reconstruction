@@ -25,11 +25,14 @@ _SOLVERS = (
 )
 _BANNED = (
     "prw.synthetic_tear",
+    "prw.synthetic_line",
     "prw.join_recall",
     "prw.outline_agreement",
     "prw.placement_error",
     "prw.assembly_join_presence",
+    "prw.character_error",
 )
+_RECOGNIZE_BANNED = _BANNED
 _RUNTIME_IMPORTS = """
 import importlib
 import json
@@ -90,3 +93,17 @@ def test_solver_import_graph_excludes_the_generator_and_recall_writers() -> None
         assert completed.returncode == 0, completed.stderr
         loaded = json.loads(completed.stdout)
         assert loaded == [], f"{module_name} loaded {loaded}"
+
+
+def test_recognize_does_not_import_the_benchmark_store() -> None:
+    banned = _banned(_import_graph("prw.recognize"))
+    assert not banned, f"prw.recognize import graph reaches {banned}"
+    completed = subprocess.run(
+        [sys.executable, "-c", _RUNTIME_IMPORTS, "prw.recognize", *_RECOGNIZE_BANNED],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    loaded = json.loads(completed.stdout)
+    assert loaded == [], f"prw.recognize loaded {loaded}"

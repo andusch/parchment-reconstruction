@@ -34,7 +34,7 @@ Stdout of each command below is one JSON object, with sorted keys and no insigni
 uv run prw --help
 ```
 
-The help text names these fourteen commands: `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, `verify`.
+The help text names these fifteen commands: `agree`, `assemble`, `assembly-rank`, `character-error`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, `verify`.
 
 ## 2. Generate a synthetic leaf
 
@@ -451,15 +451,51 @@ uv run prw recognize \
 
 Exit `0`. `record` is `ReadingHypothesis`. `epistemic_class` is `interpretation`. `producer` is `machine`. Each grapheme's `text_status` is `ocr_inferred`. `text` is Unicode NFC. `script` is `Grek` and `language` is `grc` unless you pass other tags. `envelope.algorithm_name` is `greek_line_htr`. `envelope.algorithm_version` is `1`. `envelope.model_hash` starts with `sha256:` and is the digest of the local weight bytes. The envelope omits `random_seed`. The object has no score and no `correct_join`.
 
-Pass `--script` or `--language` when the line is a nomen sacrum, an abbreviation, or mixed script. Those tags are stored. This command does not score them, and it does not score a Greek line either. It does not expand an abbreviation. It does not report a character-error number. The abbreviation policy for that number is frozen in [Q-SCI-16](EVALUATION.md#q-sci-16), closed by [P5-03](../tasks/P5-03.md). This command does not implement the report.
+Pass `--script` or `--language` when the line is a nomen sacrum, an abbreviation, or mixed script. Those tags are stored. This command does not score them, and it does not score a Greek line either. It does not expand an abbreviation. The abbreviation policy is frozen in [Q-SCI-16](EVALUATION.md#q-sci-16), closed by [P5-03](../tasks/P5-03.md). [P5-04](../tasks/P5-04.md) reports the rate with `character-error`. The tag tokens that command leaves unscored are `nomen-sacrum`, `abbreviation`, and `mixed-script`.
 
 A missing model path exits `2`. Stdout is empty. Stderr says the recognizer reads a local `medium.safetensors` and does not download weights. A file with another name is the same refusal.
+
+## 14. Report character error
+
+`character-error` writes a report under a benchmarks directory. It is unfrozen and is not a stable interface. The first number uses a frozen synthetic line fixture. The images are code-point slots, not handwriting. Ground truth is `kind: line` in `labels.json`. The command does not write a project database.
+
+Use a second disposable directory so this fixture does not share the leaf's `labels.json`:
+
+```bash
+LINES="$DEMO/lines"
+LINE_IMAGES="$LINES/images"
+LINE_BENCHMARKS="$LINES/benchmarks"
+uv run prw character-error \
+  --generate-fixture \
+  --benchmarks "$LINE_BENCHMARKS" \
+  --images "$LINE_IMAGES" \
+  --code-version "$CODE"
+```
+
+Exit `0`. `provenance.algorithm_name` is `synthetic_line_fixture`. The provenance object omits `random_seed`. Eight `line-*.tif` files, `$LINE_IMAGES/image_manifest.json`, `$LINE_BENCHMARKS/labels.json`, and `$LINE_BENCHMARKS/provenance.json` exist. `$LINE_BENCHMARKS/manifest.json` does not exist.
+
+Score that fixture. This invocation does not pass `--model` and does not read weights:
+
+```bash
+uv run prw character-error \
+  --benchmarks "$LINE_BENCHMARKS" \
+  --images "$LINE_IMAGES" \
+  --code-version "$CODE"
+```
+
+Exit `0`. `metric` is `character_error_rate`. `algorithm_name` is `synthetic_line_slots`. `algorithm_version` is `1`. `model_hash` is `absent`. `random_seed` is `absent`. `abbreviations_expanded` is false. `storage` is `nfc`. `claim` is `synthetic-fixture result`. `edit_distance` is `1`. `reference_length` is `22`. `character_error_rate` is `1` divided by `22`. `scored_line_count` is `5`. `unscored_line_count` is `3`. `line_list` has eight entries. The three unscored exclusions are `nomen-sacrum`, `abbreviation`, and `mixed-script`, and each of those has `character_error_rate` `absent`. `does_not_measure` is `Ancient Greek handwriting, scholarly acceptability, or the PP-OCRv6 medium model card`. `model_card_figures` is `citations only; not this synthetic-fixture result`. `limiting_questions` is `Q-SCI-06`, `Q-SCI-13`, and `Q-SCI-15`. `previous_report` is `absent` on the first report. The new file is `$LINE_BENCHMARKS/character_error/character-error-0001.json`. `labels.json` and the TIFF files stay byte-identical.
+
+That quotient is the measurement for this fixture. It does not measure Ancient Greek handwriting, scholarly acceptability, or the model card. The PP-OCRv6 medium card's cited Ancient Greek CER 7.21% and WER 44.03% stay citations. They are not compared with this figure.
+
+`--model` scores `greek_line_htr` on the same images when the `htr` group is installed and the path is a local file named `medium.safetensors`. The command does not download that file. Without the file it exits `2`, stdout is empty, and stderr says the recognizer reads a local `medium.safetensors` and does not download weights. A result from `--model` is still a synthetic-fixture result.
+
+A later report writes `character-error-0002.json` and leaves `character-error-0001.json` in place.
 
 ## What this build leaves for later
 
 [Roadmap](ROADMAP.md) phases after the current CLI are still ahead:
 
-- A workbench character-error report. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed. The policy is frozen, and the report is not implemented. A later ticket may implement it. A line detector and the `language` score channel stay later. `recognize` stores a machine reading and does not score it.
+- A line detector and the `language` score channel. `recognize` stores a machine reading and does not score it. `character-error` reports the synthetic-fixture rate under the frozen abbreviation policy. That rate is not a handwriting measurement.
 - Readings, assemblies, and HTR in the Qt window. The review window shows ranked joins only. Detection, search, and later HTR stay off the UI thread when they arrive. A worker process is still open.
 - Scholarly export.
 - A stored project. The CLI does not write `manifest.json` or `originals/`.

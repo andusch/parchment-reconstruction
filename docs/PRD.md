@@ -1,7 +1,7 @@
 # Product requirements
 
 - Status: Draft for review
-- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, a thin review window for ranked joins, and the P5-02 line recognizer. P5 is not complete. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed. The abbreviation policy is frozen, and the workbench character-error report is not implemented. The later end-state below is not shipped.
+- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, a thin review window for ranked joins, the P5-02 line recognizer, and the P5-04 synthetic character-error report. P5's official exit criteria are met. The character-error number is a synthetic-fixture result: edit distance 1 over reference length 22. It does not measure Ancient Greek handwriting, scholarly acceptability, or the model card. [Q-SCI-06](DATA_MODEL.md#q-sci-06) and [Q-SCI-13](DATA_MODEL.md#q-sci-13) stay open. The later end-state below is not shipped.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Open-question index: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)
 
@@ -68,7 +68,7 @@ Step 11 of the workflow writes one of the two bundles in [ADR-0012](adr/0012-exp
 
 The first product does not claim a recovered original, host cloud collaboration, or publish an edition by itself. Non-Greek HTR, rolls, 3D geometry, and multispectral capture are outside the first product. Multispectral capture is [Q-SCI-18](SCAN_PROTOCOL.md#q-sci-18). Rolls and irregular sheets are [Q-SCI-01](ALGORITHM.md#q-sci-01).
 
-The checkout's software is checksum verification, coordinate frames, provenance envelopes, synthetic fixtures, segmentation, outline agreement, chord edges, pairwise join ranking, join recall, assembly search, assembly rank, placement error, end-to-end join presence, a thin window that lists ranked joins, and line recognition on an operator-supplied image when the optional `htr` group and a local `medium.safetensors` are present. The language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed. The abbreviation policy is frozen, and the workbench character-error report is not implemented. A later ticket may implement that report. FR-1 through FR-6 remain the full workflow above. That slice is the current tree.
+The checkout's software is checksum verification, coordinate frames, provenance envelopes, synthetic fixtures, segmentation, outline agreement, chord edges, pairwise join ranking, join recall, assembly search, assembly rank, placement error, end-to-end join presence, a thin window that lists ranked joins, line recognition on an operator-supplied image when the optional `htr` group and a local `medium.safetensors` are present, and a synthetic-fixture character-error report. The language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed. [P5-04](../tasks/P5-04.md) reports character error rate on a frozen synthetic line fixture. The scored total is edit distance 1 over reference length 22. That number does not measure Ancient Greek handwriting, scholarly acceptability, or the model card. FR-1 through FR-6 remain the full workflow above. That slice is the current tree.
 
 ## Success criteria
 
