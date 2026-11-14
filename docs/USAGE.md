@@ -451,7 +451,7 @@ uv run prw recognize \
 
 Exit `0`. `record` is `ReadingHypothesis`. `epistemic_class` is `interpretation`. `producer` is `machine`. Each grapheme's `text_status` is `ocr_inferred`. `text` is Unicode NFC. `script` is `Grek` and `language` is `grc` unless you pass other tags. `envelope.algorithm_name` is `greek_line_htr`. `envelope.algorithm_version` is `1`. `envelope.model_hash` starts with `sha256:` and is the digest of the local weight bytes. The envelope omits `random_seed`. The object has no score and no `correct_join`.
 
-Pass `--script` or `--language` when the line is a nomen sacrum, an abbreviation, or mixed script. Those tags are stored. This command does not score them, and it does not score a Greek line either. It does not expand an abbreviation. It does not report a character-error number.
+Pass `--script` or `--language` when the line is a nomen sacrum, an abbreviation, or mixed script. Those tags are stored. This command does not score them, and it does not score a Greek line either. It does not expand an abbreviation. It does not report a character-error number. The abbreviation policy for that number is frozen in [Q-SCI-16](EVALUATION.md#q-sci-16), closed by [P5-03](../tasks/P5-03.md). This command does not implement the report.
 
 A missing model path exits `2`. Stdout is empty. Stderr says the recognizer reads a local `medium.safetensors` and does not download weights. A file with another name is the same refusal.
 
@@ -459,7 +459,7 @@ A missing model path exits `2`. Stdout is empty. Stderr says the recognizer read
 
 [Roadmap](ROADMAP.md) phases after the current CLI are still ahead:
 
-- A character-error number for HTR, a line detector, and the `language` score channel. `recognize` stores a machine reading and does not score it.
+- A workbench character-error report. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed. The policy is frozen, and the report is not implemented. A later ticket may implement it. A line detector and the `language` score channel stay later. `recognize` stores a machine reading and does not score it.
 - Readings, assemblies, and HTR in the Qt window. The review window shows ranked joins only. Detection, search, and later HTR stay off the UI thread when they arrive. A worker process is still open.
 - Scholarly export.
 - A stored project. The CLI does not write `manifest.json` or `originals/`.

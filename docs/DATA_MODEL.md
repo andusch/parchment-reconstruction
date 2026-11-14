@@ -74,7 +74,7 @@ flowchart TD
 
 Storage is unchanged. [Q-SCI-04](ALGORITHM.md#q-sci-04) is closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md).
 
-A reading carries `script` and `language` tags. Grapheme text and supplied restoration text are stored in Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. They are not forced through a Greek-only reading.
+A reading carries `script` and `language` tags. Grapheme text and supplied restoration text are stored in Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. They are not forced through a Greek-only reading. Character error rate uses [Q-SCI-16](EVALUATION.md#q-sci-16), closed by [P5-03](../tasks/P5-03.md). Lines the operator tags as a nomen sacrum, an abbreviation, or mixed-script stay unscored and are excluded from that set. Every other scored line is compared as written. Abbreviations are not expanded. The comparison rule above is unchanged. This record does not change storage, and it reports no workbench character-error number.
 
 PP-OCRv6 medium emits Unicode NFD. The recognizer in [P5-02](../tasks/P5-02.md) normalizes that output to NFC before storage. That normalization is the adapter step in [ADR-0010](adr/0010-local-greek-htr-runtime.md). It does not change this storage rule.
 

@@ -16,7 +16,7 @@ This document states how a later phase may claim that an algorithm change is an 
 - Synthetic tears measure geometry under the generator's cuts. They do not measure ink loss, script, or parchment warp.
 - A scholar's acceptance of rank 1 is a decision record. It is not accuracy.
 - Every algorithm change publishes a comparison against the previous benchmark record on the same frozen fixture.
-- K, fusion weights, and the abbreviation policy are selected before the evaluation set is scored. They are not selected after seeing that set. Storage stays NFC.
+- K, fusion weights, and the abbreviation policy are selected before the evaluation set is scored. They are not selected after seeing that set. The abbreviation policy is the closed decision in [Q-SCI-16](#q-sci-16). Storage stays NFC.
 
 ## BenchmarkLabel
 
@@ -81,8 +81,8 @@ Each metric has a unit and a limit on what it means. No target threshold is set 
 
 ### Character error rate
 
-- **Unit.** Character error rate after a Unicode normalization policy frozen before the run.
-- **Predeclaration.** The policy is [Q-SCI-16](#q-sci-16). No character-error number is reportable until that policy is frozen.
+- **Unit.** Character error rate after the Unicode policy in [Q-SCI-16](#q-sci-16), frozen before any reportable run.
+- **Predeclaration.** [Q-SCI-16](#q-sci-16) is closed by [P5-03](../tasks/P5-03.md). Lines the operator tags as a nomen sacrum, an abbreviation, or mixed-script stay unscored and are excluded from the character-error set. Every other scored line is compared as written. Abbreviations are not expanded. Storage stays Unicode NFC. Comparison may still strip accents and normalize final sigma. Storage never does those stripping steps. This checkout reports no workbench character-error number. The report is not implemented. A later ticket may implement it. The PP-OCRv6 medium model card's cited Ancient Greek CER 7.21% and WER 44.03% stay citations only.
 - **Does not measure.** Scholarly acceptability, translation quality, or language-channel quality.
 
 ### Language-score quality
@@ -141,10 +141,9 @@ Real manuscript images are culturally sensitive and often unpublished or license
 
 What abbreviation policy applies to character error rate?
 
-Storage is Unicode NFC. Comparison and matching may strip accents and normalize final sigma, and storage never does. Polytonic Greek and abbreviations still change the character count. A policy chosen after scoring changes the metric.
+Closed by [P5-03](../tasks/P5-03.md). No ADR: the question does not touch evidence semantics, project format, a public API, or privacy policy. Andu approved the policy on 2026-11-14 (Asia/Hong_Kong), after [P5-02](../tasks/P5-02.md) merged to master. Lines the operator tags as a nomen sacrum, an abbreviation, or mixed-script stay unscored and are excluded from the character-error set. Every other scored line is compared as written. Abbreviations are not expanded. [ADR-0010](adr/0010-local-greek-htr-runtime.md) already records that abbreviation expansion can be unpredictable. Storage stays Unicode NFC. This close-out does not change the storage rule. Comparison may still strip accents and normalize final sigma, as the data model already allows. Storage never does those stripping steps. The policy is frozen before any reportable run. The PP-OCRv6 medium model card's cited Ancient Greek CER 7.21% and WER 44.03% stay citations only. This close-out reports no workbench character-error number.
 
-- Options: abbreviations scored as written; abbreviations expanded before scoring; a written policy that freezes one of these before the first reportable run.
-- Blocks: reporting character error rate. P5 writes no character-error number until the abbreviation policy is frozen. NFC storage does not by itself make the number reportable. [ADR-0010](adr/0010-local-greek-htr-runtime.md) records the model card's cited Ancient Greek figures and leaves this question open.
+- Blocks: nothing further for the abbreviation policy. The policy is frozen, and the workbench character-error report is not implemented. A later ticket may implement that report. P5 is not complete. NFC storage does not by itself make a number reportable. [Q-SCI-06](DATA_MODEL.md#q-sci-06) and [Q-SCI-13](DATA_MODEL.md#q-sci-13) stay open.
 
 ### Q-SCI-17
 
