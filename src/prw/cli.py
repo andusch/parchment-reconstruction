@@ -5,7 +5,8 @@ The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 ``prw.outline_agreement``, ``prw.edge_chord``, ``prw.pairwise_join``,
 ``prw.join_rank``, ``prw.join_recall``, ``prw.assembly_search``,
 ``prw.assembly_rank``, ``prw.placement_error``,
-``prw.assembly_join_presence``, and ``prw.recognize``. Command names and
+``prw.assembly_join_presence``, ``prw.recognize``,
+``prw.synthetic_line``, and ``prw.character_error``. Command names and
 flags are unfrozen. They are not a stable interface. The project format
 is still Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not
 import Qt, does not open a network connection, does not start a worker,
@@ -14,7 +15,8 @@ one repeated flag with a label and an existing path. A missing path is
 an error that lists the fragment names in the sibling
 ``image_manifest.json``. The recognizer reads one operator-supplied line
 image and a local ``medium.safetensors`` file. It does not download
-weights.
+weights. ``character-error`` reports character error rate for a line
+fixture. It does not download weights. The synthetic reader uses no model.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ import argparse
 import json
 import sys
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,9 +39,10 @@ from prw.assembly_search import (
     FailedAssemblySearch,
     FragmentOutline,
 )
+from prw.character_error import write_character_error
 from prw.edge_chord import ChordEdges, EdgeChordLog, FailedEdgeChord
 from prw.frames import CoordinateFrame, PageFrame
-from prw.identity import ABSENT, canonical_json, content_id
+from prw.identity import ABSENT, canonical_json, content_id, hash_value
 from prw.ingest import (
     IntegrityFailure,
     UnsupportedMediaType,
@@ -67,15 +70,25 @@ from prw.provenance import (
     StatusStream,
 )
 from prw.recognize import (
+    ALGORITHM_NAME as HTR_ALGORITHM_NAME,
+)
+from prw.recognize import (
+    ALGORITHM_VERSION as HTR_ALGORITHM_VERSION,
+)
+from prw.recognize import (
+    MINIMUM_RUNTIME,
+    WEIGHT_FILE_NAME,
     FailedLineRecognition,
     HtrGroupMissing,
     LineRecognition,
     LineRecognitionLog,
     PreparedLine,
+    model_hash_for_weights,
     predict_line_text,
     prepare_line_image,
     require_htr_group,
     require_weight_path,
+    storage_text,
 )
 from prw.scale import (
     CallerScale,
@@ -92,7 +105,13 @@ from prw.segment import (
     SegmentedOutline,
     pool_project_id,
 )
-from prw.synthetic_tear import generate_synthetic_leaf
+from prw.synthetic_line import (
+    generate_synthetic_lines,
+    load_image_manifest,
+    read_synthetic_line,
+    reader_envelope,
+)
+from prw.synthetic_tear import generate_synthetic_leaf, require_fixture_destination
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -114,7 +133,8 @@ def _parser() -> argparse.ArgumentParser:
             "fixture generator, segmentation, caller-supplied scale, outline "
             "agreement, chord edges, pairwise joins, join recall, assembly "
             "search, assembly rank, placement error, end-to-end join "
-            "presence, and line recognition. Command names are unfrozen "
+            "presence, line recognition, and character error. Command "
+            "names are unfrozen "
             "and are not a stable interface. The project format is still "
             "Q-ENG-01."
         ),
@@ -247,6 +267,28 @@ def _parser() -> argparse.ArgumentParser:
     recognize.add_argument("--script", default="Grek")
     recognize.add_argument("--language", default="grc")
     recognize.add_argument("--expected", default=None)
+
+    character_error = commands.add_parser(
+        "character-error",
+        help=("Write a character-error report. Unfrozen; not a stable interface."),
+    )
+    character_error.add_argument("--benchmarks", type=Path, required=True)
+    character_error.add_argument("--images", type=Path, required=True)
+    character_error.add_argument("--code-version", required=True)
+    character_error.add_argument(
+        "--generate-fixture",
+        action="store_true",
+        help="Write the frozen synthetic line fixture and do not score it.",
+    )
+    character_error.add_argument(
+        "--model",
+        type=Path,
+        default=None,
+        help=(
+            "Score greek_line_htr using a local medium.safetensors. "
+            "Omit to score the synthetic line reader. Weights are not downloaded."
+        ),
+    )
     return parser
 
 
@@ -394,6 +436,192 @@ def _missing_image_message(path: Path, names: Sequence[str] | None = None) -> st
         return f"{path} is not a fixture image."
     listed = ", ".join(present)
     return f"{path} is not a fixture image. Fragment files: {listed}."
+
+
+def _cmd_character_error(args: argparse.Namespace) -> int:
+    require_fixture_destination(args.benchmarks)
+    require_fixture_destination(args.images)
+    if args.generate_fixture:
+        if args.model is not None:
+            raise ValueError("The fixture writer does not run a model.")
+        fixture = generate_synthetic_lines(
+            args.benchmarks,
+            images_dir=args.images,
+            code_version=args.code_version,
+        )
+        provenance = fixture.envelope.content_mapping()
+        provenance["id"] = fixture.envelope.id
+        _print_record(
+            {
+                "provenance": provenance,
+                "images": [
+                    {
+                        "name": image.name,
+                        "role": "line",
+                        "content_hash": image.content_hash,
+                        "byte_length": image.byte_length,
+                    }
+                    for image in fixture.images
+                ],
+            }
+        )
+        return 0
+    manifest = load_image_manifest(args.images / "image_manifest.json")
+    if args.model is None:
+        hypotheses, envelope = _slot_hypotheses(
+            args.images, manifest, args.code_version
+        )
+    else:
+        recognized = _model_hypotheses(
+            args.benchmarks,
+            args.images,
+            manifest,
+            args.model,
+            args.code_version,
+        )
+        if isinstance(recognized, int):
+            return recognized
+        hypotheses, envelope = recognized
+    report = write_character_error(
+        args.benchmarks,
+        images_dir=args.images,
+        envelope=envelope,
+        hypotheses=hypotheses,
+    )
+    _print_record(json.loads(report.read_text(encoding="utf-8")))
+    return 0
+
+
+def _slot_hypotheses(
+    images_dir: Path,
+    manifest: Sequence[dict[str, Any]],
+    code_version: str,
+) -> tuple[dict[str, str], ProvenanceEnvelope]:
+    hypotheses: dict[str, str] = {}
+    hashes: list[str] = []
+    for entry in manifest:
+        payload = _line_payload(images_dir, entry)
+        hypotheses[str(entry["name"])] = read_synthetic_line(payload)
+        hashes.append(hash_value(payload))
+    return hypotheses, reader_envelope(source_hashes=hashes, code_version=code_version)
+
+
+def _model_hypotheses(
+    benchmarks_dir: Path,
+    images_dir: Path,
+    manifest: Sequence[dict[str, Any]],
+    model: Path,
+    code_version: str,
+) -> tuple[dict[str, str], ProvenanceEnvelope] | int:
+    weight_path = require_weight_path(model)
+    try:
+        runtime_version = require_htr_group()
+    except HtrGroupMissing as exc:
+        raise ValueError(str(exc)) from exc
+    weight_bytes = weight_path.read_bytes()
+    tags = _line_tags(benchmarks_dir / "labels.json")
+    hypotheses: dict[str, str] = {}
+    hashes: list[str] = []
+    lines: list[dict[str, str]] = []
+    decoder_name = ""
+    decoder_version = ""
+    for entry in manifest:
+        name = str(entry["name"])
+        payload = _line_payload(images_dir, entry)
+        prepared = prepare_line_image(payload, expected_hash=str(entry["content_hash"]))
+        if not isinstance(prepared, PreparedLine):
+            _print_failure(prepared)
+            return 1
+        if decoder_name == "":
+            decoder_name = prepared.decoder_name
+            decoder_version = prepared.decoder_version
+        elif (
+            prepared.decoder_name != decoder_name
+            or prepared.decoder_version != decoder_version
+        ):
+            raise ValueError("A line fixture uses one decoder.")
+        try:
+            prediction = predict_line_text(payload, weight_path)
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError(f"{type(exc).__name__}: {exc}") from exc
+        hypotheses[name] = storage_text(prediction)
+        hashes.append(prepared.content_hash)
+        pair = tags.get(name)
+        if pair is None:
+            raise ValueError("A character-error report lists every line.")
+        script, language = pair
+        lines.append({"image_name": name, "language": language, "script": script})
+    envelope = ProvenanceEnvelope.create(
+        source_hashes=hashes,
+        parameters={
+            "bidi_reordering": True,
+            "line_input": "operator_supplied",
+            "lines": lines,
+            "minimum_runtime_version": MINIMUM_RUNTIME,
+            "model_file": WEIGHT_FILE_NAME,
+            "num_line_workers": 0,
+            "padding": 16,
+            "reader": HTR_ALGORITHM_NAME,
+            "runtime": "kraken",
+            "runtime_version": runtime_version,
+            "scored": True,
+            "segmentation": "none",
+            "temperature": 1.0,
+            "text_direction": "horizontal-tb",
+            "unicode_normalization": "NFC",
+        },
+        algorithm_name=HTR_ALGORITHM_NAME,
+        algorithm_version=HTR_ALGORITHM_VERSION,
+        code_version=code_version,
+        decoder_name=decoder_name,
+        decoder_version=decoder_version,
+        model_hash=model_hash_for_weights(weight_bytes),
+    )
+    return hypotheses, envelope
+
+
+def _line_payload(images_dir: Path, entry: Mapping[str, Any]) -> bytes:
+    name = entry["name"]
+    if not isinstance(name, str):
+        raise ValueError("An image manifest lists line images.")
+    path = images_dir / name
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"{path} is not a line image.") from exc
+    if hash_value(payload) != entry["content_hash"]:
+        raise ValueError("A line image does not match the fixture manifest.")
+    if len(payload) != entry["byte_length"]:
+        raise ValueError("A line image does not match the fixture manifest.")
+    return payload
+
+
+def _line_tags(path: Path) -> dict[str, tuple[str, str]]:
+    try:
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError("A label file with no line row is refused.") from exc
+    if not isinstance(loaded, list):
+        raise ValueError("A label file with no line row is refused.")
+    tags: dict[str, tuple[str, str]] = {}
+    for item in loaded:
+        if not isinstance(item, dict) or item.get("kind") != "line":
+            continue
+        name = item.get("image_name")
+        script = item.get("script")
+        language = item.get("language")
+        if (
+            not isinstance(name, str)
+            or not isinstance(script, str)
+            or not isinstance(language, str)
+        ):
+            raise ValueError("A line label cites an image, a text, and tags.")
+        tags[name] = (script, language)
+    if not tags:
+        raise ValueError("A label file with no line row is refused.")
+    return tags
 
 
 def _cmd_recognize(args: argparse.Namespace) -> int:
@@ -1430,6 +1658,7 @@ _COMMANDS = {
     "placement-error": _cmd_placement_error,
     "join-presence": _cmd_join_presence,
     "recognize": _cmd_recognize,
+    "character-error": _cmd_character_error,
 }
 
 

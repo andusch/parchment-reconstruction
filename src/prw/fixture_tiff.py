@@ -64,6 +64,50 @@ def _value_offset(index: int) -> int:
     return _IFD_OFFSET + 2 + index * _ENTRY_LENGTH + 8
 
 
+def write_fixture_tiff(width: int, height: int, samples: bytes) -> bytes:
+    """Return one uncompressed 8-bit grayscale TIFF in this reader's layout.
+
+    The layout is the synthetic fixture writer: magic, one IFD, photometric
+    BlackIsZero, and no compression. This is not a writer for arbitrary scans.
+    """
+    if isinstance(width, bool) or not isinstance(width, int) or width < 1:
+        raise ValueError("A fixture image has a positive width and height.")
+    if isinstance(height, bool) or not isinstance(height, int) or height < 1:
+        raise ValueError("A fixture image has a positive width and height.")
+    if not isinstance(samples, bytes) or len(samples) != width * height:
+        raise ValueError("Uncompressed grayscale samples are one byte per pixel.")
+    entries = b"".join(
+        (
+            _tiff_long(256, width),
+            _tiff_long(257, height),
+            _tiff_short(258, 8),
+            _tiff_short(259, _UNCOMPRESSED),
+            _tiff_short(262, _BLACK_IS_ZERO),
+            _tiff_long(273, _HEADER_LENGTH),
+            _tiff_short(277, 1),
+            _tiff_long(278, height),
+            _tiff_long(279, width * height),
+        )
+    )
+    ifd = struct.pack("<H", _ENTRY_COUNT) + entries + struct.pack("<I", 0)
+    payload = TIFF_MAGIC + struct.pack("<I", _IFD_OFFSET) + ifd + samples
+    stored_width = _long_at(payload, TIFF_WIDTH_OFFSET)
+    stored_height = _long_at(payload, TIFF_HEIGHT_OFFSET)
+    if (stored_width, stored_height) != (width, height):
+        raise ValueError(
+            "The TIFF width and height were not stored at the documented offsets."
+        )
+    return payload
+
+
+def _tiff_long(tag: int, value: int) -> bytes:
+    return struct.pack("<HHII", tag, 4, 1, value)
+
+
+def _tiff_short(tag: int, value: int) -> bytes:
+    return struct.pack("<HHIHH", tag, 3, 1, value, 0)
+
+
 def read_fixture_tiff(
     payload: bytes | bytearray,
 ) -> FixtureSamples | UnsupportedFixtureLayout:

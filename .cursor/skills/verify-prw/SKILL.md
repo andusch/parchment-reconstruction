@@ -1,6 +1,6 @@
 ---
 name: verify-prw
-description: Drive the parchment-workbench headless CLI (prw) and the review window (prw-review) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying any prw command (agree, assemble, assembly-rank, edge, frame, generate, join-presence, placement-error, provenance, rank, recall, recognize, segment, verify), the flags --claimed-ppi, --enclosed-background-treatment, and --border-mount-treatment, provenance output, or the offscreen review window, or when a change to those commands needs a user-level proof.
+description: Drive the parchment-workbench headless CLI (prw) and the review window (prw-review) from a disposable synthetic-fixture directory and capture command transcripts. Use when verifying any prw command (agree, assemble, assembly-rank, character-error, edge, frame, generate, join-presence, placement-error, provenance, rank, recall, recognize, segment, verify), the flags --claimed-ppi, --enclosed-background-treatment, and --border-mount-treatment, provenance output, or the offscreen review window, or when a change to those commands needs a user-level proof.
 ---
 
 # Verify parchment-workbench
@@ -53,7 +53,7 @@ Run doctor before driving whenever a command fails or the tree changes. Success 
 - `version` (`0.0.0`)
 - `code_version` (HEAD at launch, still the current HEAD)
 - `worktree` (`clean` or `dirty`)
-- `commands` (`agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,recognize,segment,verify`)
+- `commands` (`agree,assemble,assembly-rank,character-error,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,recognize,segment,verify`)
 
 Doctor is the readiness check. It re-hashes the seeded page and fragment files, re-reads `image_manifest.json`, requires `benchmarks/labels.json` and `benchmarks/provenance.json`, confirms `prw --help` and `prw.__version__`, and refuses a stale or live `active.pid`. It does not write the instance, the evidence directory, or source files. A failure prints the reason on stderr and does not print `prw-verify doctor ok`.
 

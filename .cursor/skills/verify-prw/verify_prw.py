@@ -35,6 +35,7 @@ EXPECTED_COMMANDS = (
     "agree",
     "assemble",
     "assembly-rank",
+    "character-error",
     "edge",
     "frame",
     "generate",

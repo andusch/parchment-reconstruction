@@ -48,10 +48,10 @@ Option 3, with the weight file named below. Kraken >= 7.1.0 is the HTR runtime. 
 
 ## Consequences
 
-- [Q-SCI-04](../OPEN_QUESTIONS.md#q-sci-04), [Q-SCI-14](../OPEN_QUESTIONS.md#q-sci-14), and [Q-ENG-03](../OPEN_QUESTIONS.md#q-eng-03) are closed. P5 is no longer hard-blocked on those three questions. P5 is not complete.
+- [Q-SCI-04](../OPEN_QUESTIONS.md#q-sci-04), [Q-SCI-14](../OPEN_QUESTIONS.md#q-sci-14), and [Q-ENG-03](../OPEN_QUESTIONS.md#q-eng-03) are closed. P5 is no longer hard-blocked on those three questions. P5's official exit criteria are met by [P5-04](../../tasks/P5-04.md). The character-error number is a synthetic-fixture result.
 - [P5-02](../../tasks/P5-02.md) adds Kraken >= 7.1.0 in the optional `htr` dependency group and the unfrozen `recognize` command. The Kraken package license is Apache-2.0, recorded on that ticket. The weight license is the Apache-2.0 grant above. A weight download remains unapproved. The default process does not download weights.
 - The weight file stays outside Git and outside CI. Version stays 0.0.0.
-- [Q-SCI-16](../OPEN_QUESTIONS.md#q-sci-16) is closed by [P5-03](../../tasks/P5-03.md). The abbreviation policy is frozen. P5 is not complete. A later ticket may implement the workbench character-error report. The card's cited Ancient Greek CER 7.21% and WER 44.03% stay citations. [Q-SCI-06](../OPEN_QUESTIONS.md#q-sci-06) and [Q-SCI-13](../OPEN_QUESTIONS.md#q-sci-13) stay open. P6, P7, and P8 stay later.
+- [Q-SCI-16](../OPEN_QUESTIONS.md#q-sci-16) is closed by [P5-03](../../tasks/P5-03.md). The abbreviation policy is frozen. [P5-04](../../tasks/P5-04.md) reports character error rate on a frozen synthetic line fixture. The scored total is edit distance 1 over reference length 22. That number is a synthetic-fixture result. It does not measure Ancient Greek handwriting, scholarly acceptability, or the model card. The card's cited Ancient Greek CER 7.21% and WER 44.03% stay citations and are not compared with this figure. P5's official exit criteria are met. [Q-SCI-06](../OPEN_QUESTIONS.md#q-sci-06) and [Q-SCI-13](../OPEN_QUESTIONS.md#q-sci-13) stay open and do not block that exit. P6, P7, and P8 stay later.
 - The stored status remains `ocr_inferred` when the producer is HTR. Epistemic class remains `interpretation`. Producer for a machine reading remains `machine`.
 - Model hash in the provenance envelope is the token `absent` for runs that do not use a model. It is never the Zenodo MD5.
 
@@ -65,3 +65,4 @@ Option 3, with the weight file named below. Kraken >= 7.1.0 is the HTR runtime. 
 - [P5-01](../../tasks/P5-01.md)
 - [P5-02](../../tasks/P5-02.md)
 - [P5-03](../../tasks/P5-03.md)
+- [P5-04](../../tasks/P5-04.md)
