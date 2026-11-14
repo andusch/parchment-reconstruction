@@ -76,7 +76,7 @@ Storage is unchanged. [Q-SCI-04](ALGORITHM.md#q-sci-04) is closed by [ADR-0010](
 
 A reading carries `script` and `language` tags. Grapheme text and supplied restoration text are stored in Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does. Nomina sacra, abbreviations, and mixed-script pages are recorded under their own `script` or `language` tag and left unscored. They are not forced through a Greek-only reading.
 
-PP-OCRv6 medium emits Unicode NFD. An implementation normalizes that output to NFC before storage. That normalization is an adapter step in [ADR-0010](adr/0010-local-greek-htr-runtime.md). It does not change this storage rule, and this document does not implement it.
+PP-OCRv6 medium emits Unicode NFD. The recognizer in [P5-02](../tasks/P5-02.md) normalizes that output to NFC before storage. That normalization is the adapter step in [ADR-0010](adr/0010-local-greek-htr-runtime.md). It does not change this storage rule.
 
 ## Score channels
 
@@ -434,6 +434,8 @@ A token sequence of grapheme ids, attached to a fragment or an assembly, with `h
 | `session_id` | Set when `producer` is `human` |
 
 `missing` is not a grapheme status. A gap is a [GapRegion](#gapregion) on a page hypothesis. Show-through is [Q-SCI-06](#q-sci-06).
+
+The reading id includes grapheme ids, and the grapheme id includes the reading id, so the two sentences cite each other. The in-memory records hash the reading id from the run id and the reading fields other than `grapheme_ids`, plus the ordered NFC texts. Each grapheme id hashes the run id, that reading id, the zero-based position, and the grapheme content. The position keeps a repeated letter a distinct row. It is not a line-order index. No project file stores these rows, so there is no migration.
 
 ### ValidationDecision
 

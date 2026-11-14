@@ -1,7 +1,7 @@
 # Product requirements
 
 - Status: Draft for review
-- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, and a thin review window for ranked joins. P5 HTR is not implemented. Q-SCI-04, Q-SCI-14, and Q-ENG-03 no longer hard-block it. The later end-state below is not shipped.
+- Phase: living requirements. The checkout contains the headless CLI through the P4 assembly commands, a thin review window for ranked joins, and the P5-02 line recognizer. P5 is not complete. Q-SCI-16 still blocks a character-error number. The later end-state below is not shipped.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Open-question index: [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)
 
@@ -68,7 +68,7 @@ Step 11 of the workflow writes one of the two bundles in [ADR-0012](adr/0012-exp
 
 The first product does not claim a recovered original, host cloud collaboration, or publish an edition by itself. Non-Greek HTR, rolls, 3D geometry, and multispectral capture are outside the first product. Multispectral capture is [Q-SCI-18](SCAN_PROTOCOL.md#q-sci-18). Rolls and irregular sheets are [Q-SCI-01](ALGORITHM.md#q-sci-01).
 
-The checkout's software is checksum verification, coordinate frames, provenance envelopes, synthetic fixtures, segmentation, outline agreement, chord edges, pairwise join ranking, join recall, assembly search, assembly rank, placement error, end-to-end join presence, and a thin window that lists ranked joins. Ancient Greek HTR, the language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. FR-1 through FR-6 remain the full workflow above. That slice is the current tree.
+The checkout's software is checksum verification, coordinate frames, provenance envelopes, synthetic fixtures, segmentation, outline agreement, chord edges, pairwise join ranking, join recall, assembly search, assembly rank, placement error, end-to-end join presence, a thin window that lists ranked joins, and line recognition on an operator-supplied image when the optional `htr` group and a local `medium.safetensors` are present. The language channel, Qt assemblies and readings, scholarly export, a stored project, and a CLI command that writes a human outline or a validation decision stay later. A character-error number stays blocked. FR-1 through FR-6 remain the full workflow above. That slice is the current tree.
 
 ## Success criteria
 

@@ -82,7 +82,7 @@ A missing path exits `2`. Stdout is empty. Stderr says `<path> is not a fixture 
 
 ## Scale
 
-`prw --help` names thirteen commands: `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `segment`, and `verify`. None of them is a scale store.
+`prw --help` names fourteen commands: `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, and `verify`. None of them is a scale store. `recognize` reads a line image and a local `medium.safetensors`. It does not download weights.
 
 Scale reaches the pixel commands as two flags supplied together: `--pixels-per-mm` and `--uncertainty`. The flags are accepted on `segment`, `edge`, `rank`, `recall`, `assemble`, `assembly-rank`, `placement-error`, and `join-presence`. One flag without the other exits `2`, stdout is empty, and stderr is `pixels_per_mm and uncertainty are supplied together.` `pixels_per_mm` is a positive finite number. `uncertainty` is zero or a positive finite number, in the same units. The caller-supplied scale records producer `human`. The number is a measurement you supply. The algorithm does not recover a scale from the file.
 

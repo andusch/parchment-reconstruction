@@ -43,6 +43,7 @@ EXPECTED_COMMANDS = (
     "provenance",
     "rank",
     "recall",
+    "recognize",
     "segment",
     "verify",
 )
