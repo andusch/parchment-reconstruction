@@ -9,7 +9,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Require the line `prw-verify ready <run-id>` before exporting variables or driving a feature.
 - The instance is `$TMPDIR/prw-verify/<run-id>/`. It is outside the checkout. Its seed is one synthetic leaf: missing-fragment percentage `0`, edge erosion `0`, rotation `0`, lighting variation `0`, random seed `3`, and `code-version` equal to `git rev-parse HEAD` at launch.
 - Export doctor fields with `eval "$(uv run python .cursor/skills/verify-prw/verify_prw.py exports --run RUN_ID)"`.
-- Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,segment,verify`.
+- Run `doctor --run "$RUN_ID"` and require `prw-verify doctor ok`, version `0.0.0`, and a `commands` line of `agree,assemble,assembly-rank,edge,frame,generate,join-presence,placement-error,provenance,rank,recall,recognize,segment,verify`.
 - Drive only the instance this launch created. A second run id is a second instance. The same run id refuses a concurrent drive.
 - There is no port, account, or project database. Do not open `data/`, `scans/`, `real_data/`, or a TIFF inside the checkout.
 - `prw-review` is a separate console script. It is not one of the names on the `commands` line. The review-window feature drives it. `--program` defaults to `prw`.
@@ -59,4 +59,5 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [Write placement error](./placement-error.md) covers the first placement-error report and a rejected `--claimed-ppi`.
 - [Write join presence](./join-presence.md) covers the first end-to-end join-presence report and a rejected `--claimed-ppi`.
 - [Record provenance](./provenance-envelope.md) covers a deterministic envelope, a seeded envelope, and a rejected parameter.
+- [Recognize a line](./recognize-line.md) covers a missing weight path and a missing htr group. It does not download weights.
 - [Review ranked joins](./review-window.md) covers help, an offscreen list of hypotheses, Load synthetic pair, a BenchmarkLabel path, and a missing image.

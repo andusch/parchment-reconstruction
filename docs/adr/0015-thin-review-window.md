@@ -33,7 +33,7 @@ Option 1. This is the Pilot-05 slice. It does not close the questions above.
 
 - An operator with the `ui` group can load a synthetic multi-fragment pool and read ranked joins as hypotheses.
 - P7 still owes readings, assemblies, HTR, process isolation, roles, a desktop target, a named reconstruction, and the sync-folder warning.
-- CI installs PySide6-Essentials because it installs every dependency group.
+- CI installs the default groups, `dev` and `ui`, including PySide6-Essentials. It does not install the `htr` group.
 
 ## Related
 

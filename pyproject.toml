@@ -27,6 +27,11 @@ dev = [
 ui = [
     "PySide6-Essentials>=6.8",
 ]
+# Kraken pulls PyTorch. Keep it out of default-groups so CI and a normal
+# `uv sync` do not install either package and do not fetch weights.
+htr = [
+    "kraken>=7.1.0",
+]
 
 [tool.uv]
 default-groups = ["dev", "ui"]

@@ -8,7 +8,7 @@ Work on a synthetic leaf in a disposable directory outside the checkout. Real sc
 
 ## Before you start
 
-Install [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. From the checkout root, `uv run` selects this project. `uv run prw` and `uv run python -m prw.cli` call the same function. `uv run prw-review` opens the review window. That command needs the `ui` group, which `uv sync` installs by default. The binding is PySide6-Essentials. See [ADR-0015](adr/0015-thin-review-window.md).
+Install [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer. From the checkout root, `uv run` selects this project. `uv run prw` and `uv run python -m prw.cli` call the same function. `uv run prw-review` opens the review window. That command needs the `ui` group, which `uv sync` installs by default. The binding is PySide6-Essentials. See [ADR-0015](adr/0015-thin-review-window.md). `prw recognize` needs the optional `htr` group, which `uv sync` does not install. Install it with `uv sync --group htr`. That install does not download weights.
 
 ```bash
 cd /path/to/parchment-reconstruction
@@ -34,7 +34,7 @@ Stdout of each command below is one JSON object, with sorted keys and no insigni
 uv run prw --help
 ```
 
-The help text names these thirteen commands: `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `segment`, `verify`.
+The help text names these fourteen commands: `agree`, `assemble`, `assembly-rank`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, `verify`.
 
 ## 2. Generate a synthetic leaf
 
@@ -436,11 +436,30 @@ The window needs a display. The list labels every row `hypothesis`, including ra
 
 The rank call runs off the UI thread, one call at a time. Closing the window waits for that call. There is no cancellation. A worker process is still [Q-ENG-06](OPEN_QUESTIONS.md#q-eng-06). The actor string is `local-operator`. The window does not ask for a person's name, and it does not write a project directory.
 
+## 13. Recognize one line image
+
+`recognize` reads one line image you already cut. It does not find lines on a page. It needs a local file named `medium.safetensors` and the `htr` group. The command does not download that file. Without the group it exits `2`, stdout is empty, and stderr tells you to run `uv sync --group htr`.
+
+```bash
+uv sync --group htr
+uv run prw recognize \
+  "$LINE" \
+  --model /path/to/medium.safetensors \
+  --label shelf-4 \
+  --code-version "$CODE"
+```
+
+Exit `0`. `record` is `ReadingHypothesis`. `epistemic_class` is `interpretation`. `producer` is `machine`. Each grapheme's `text_status` is `ocr_inferred`. `text` is Unicode NFC. `script` is `Grek` and `language` is `grc` unless you pass other tags. `envelope.algorithm_name` is `greek_line_htr`. `envelope.algorithm_version` is `1`. `envelope.model_hash` starts with `sha256:` and is the digest of the local weight bytes. The envelope omits `random_seed`. The object has no score and no `correct_join`.
+
+Pass `--script` or `--language` when the line is a nomen sacrum, an abbreviation, or mixed script. Those tags are stored. This command does not score them, and it does not score a Greek line either. It does not expand an abbreviation. It does not report a character-error number.
+
+A missing model path exits `2`. Stdout is empty. Stderr says the recognizer reads a local `medium.safetensors` and does not download weights. A file with another name is the same refusal.
+
 ## What this build leaves for later
 
 [Roadmap](ROADMAP.md) phases after the current CLI are still ahead:
 
-- Ancient Greek HTR, and the `language` score channel.
+- A character-error number for HTR, a line detector, and the `language` score channel. `recognize` stores a machine reading and does not score it.
 - Readings, assemblies, and HTR in the Qt window. The review window shows ranked joins only. Detection, search, and later HTR stay off the UI thread when they arrive. A worker process is still open.
 - Scholarly export.
 - A stored project. The CLI does not write `manifest.json` or `originals/`.

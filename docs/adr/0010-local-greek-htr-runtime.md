@@ -44,13 +44,13 @@ Option 3, with the weight file named below. Kraken >= 7.1.0 is the HTR runtime. 
 
 **Coverage.** The product scope is one model for all polytonic Greek, and PP-OCRv6 medium is the chosen model. The PP-OCR card does not say "polytonic" and does not claim majuscule, papyrus, or inscription coverage. Ancient Greek training sources listed on the card are EPARCHOS, HPGTR, HTR_CPgr23 (Palatinus graecus 23), and Stavronikita Monastery collections 53, 79, and 114, plus private datasets and synthetic augmentation. The card cites, for greedy CTC with NFD and whitespace normalization, Ancient Greek CER 7.21%, WER 44.03%, on 451 lines. Those figures belong to the card. They are not a character-error number from this workbench. Output on the card is Unicode NFD.
 
-**Storage.** Readings carry `script` and `language`. Stored text is Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does those stripping steps. An implementation normalizes model output from NFD to NFC before storage. That normalization is an adapter step. It does not change the storage rule. This record does not implement the adapter.
+**Storage.** Readings carry `script` and `language`. Stored text is Unicode NFC. Comparison and matching may strip accents and normalize final sigma. Storage never does those stripping steps. An implementation normalizes model output from NFD to NFC before storage. That normalization is an adapter step. It does not change the storage rule. This record does not implement the adapter. [P5-02](../../tasks/P5-02.md) does.
 
 ## Consequences
 
-- [Q-SCI-04](../OPEN_QUESTIONS.md#q-sci-04), [Q-SCI-14](../OPEN_QUESTIONS.md#q-sci-14), and [Q-ENG-03](../OPEN_QUESTIONS.md#q-eng-03) are closed. P5 is no longer hard-blocked on those three questions. P5 is not implemented.
-- Adding Kraken as a package dependency, wiring a recognizer command, and any weight download are later tickets. Each needs its own implementation approval. This acceptance adds no runtime dependency. The Kraken package license is recorded on the ticket that adds the package. The weight license is the Apache-2.0 grant above.
-- The weight file stays outside Git and outside CI. Version stays 0.0.0. No CLI change follows from this record.
+- [Q-SCI-04](../OPEN_QUESTIONS.md#q-sci-04), [Q-SCI-14](../OPEN_QUESTIONS.md#q-sci-14), and [Q-ENG-03](../OPEN_QUESTIONS.md#q-eng-03) are closed. P5 is no longer hard-blocked on those three questions. P5 is not complete.
+- [P5-02](../../tasks/P5-02.md) adds Kraken >= 7.1.0 in the optional `htr` dependency group and the unfrozen `recognize` command. The Kraken package license is Apache-2.0, recorded on that ticket. The weight license is the Apache-2.0 grant above. A weight download remains unapproved. The default process does not download weights.
+- The weight file stays outside Git and outside CI. Version stays 0.0.0.
 - [Q-SCI-16](../OPEN_QUESTIONS.md#q-sci-16) still blocks reporting a character-error number. [Q-SCI-06](../OPEN_QUESTIONS.md#q-sci-06) and [Q-SCI-13](../OPEN_QUESTIONS.md#q-sci-13) stay open. P6, P7, and P8 stay later.
 - The stored status remains `ocr_inferred` when the producer is HTR. Epistemic class remains `interpretation`. Producer for a machine reading remains `machine`.
 - Model hash in the provenance envelope is the token `absent` for runs that do not use a model. It is never the Zenodo MD5.
@@ -63,3 +63,4 @@ Option 3, with the weight file named below. Kraken >= 7.1.0 is the HTR runtime. 
 - [Q-ENG-03](../OPEN_QUESTIONS.md#q-eng-03)
 - [ADR 0001](0001-local-only-processing.md)
 - [P5-01](../../tasks/P5-01.md)
+- [P5-02](../../tasks/P5-02.md)

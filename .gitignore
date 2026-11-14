@@ -23,6 +23,7 @@ exports/
 *.onnx
 *.pt
 *.gguf
+*.safetensors
 
 # Agent debug logs are not tracked.
 .cursor/**/*.log

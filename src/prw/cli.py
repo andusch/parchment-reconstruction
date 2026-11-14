@@ -4,14 +4,17 @@ The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 ``prw.synthetic_tear``, ``prw.segment``, ``prw.scale``,
 ``prw.outline_agreement``, ``prw.edge_chord``, ``prw.pairwise_join``,
 ``prw.join_rank``, ``prw.join_recall``, ``prw.assembly_search``,
-``prw.assembly_rank``, ``prw.placement_error``, and
-``prw.assembly_join_presence``. Command names and flags are unfrozen. They
-are not a stable interface. The project format is still Q-ENG-01 in
-``docs/OPEN_QUESTIONS.md``. This module does not import Qt, does not open
-a network connection, does not start a worker, and does not write
-``manifest.json`` or ``originals/``. A pool image is one repeated flag
-with a label and an existing path. A missing path is an error that lists
-the fragment names in the sibling ``image_manifest.json``.
+``prw.assembly_rank``, ``prw.placement_error``,
+``prw.assembly_join_presence``, and ``prw.recognize``. Command names and
+flags are unfrozen. They are not a stable interface. The project format
+is still Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not
+import Qt, does not open a network connection, does not start a worker,
+and does not write ``manifest.json`` or ``originals/``. A pool image is
+one repeated flag with a label and an existing path. A missing path is
+an error that lists the fragment names in the sibling
+``image_manifest.json``. The recognizer reads one operator-supplied line
+image and a local ``medium.safetensors`` file. It does not download
+weights.
 """
 
 from __future__ import annotations
@@ -63,6 +66,17 @@ from prw.provenance import (
     StatusEvent,
     StatusStream,
 )
+from prw.recognize import (
+    FailedLineRecognition,
+    HtrGroupMissing,
+    LineRecognition,
+    LineRecognitionLog,
+    PreparedLine,
+    predict_line_text,
+    prepare_line_image,
+    require_htr_group,
+    require_weight_path,
+)
 from prw.scale import (
     CallerScale,
     ClaimedResolution,
@@ -99,9 +113,10 @@ def _parser() -> argparse.ArgumentParser:
             "Headless calls for ingest, frames, provenance, the synthetic "
             "fixture generator, segmentation, caller-supplied scale, outline "
             "agreement, chord edges, pairwise joins, join recall, assembly "
-            "search, assembly rank, placement error, and end-to-end join "
-            "presence. Command names are unfrozen and are not a stable "
-            "interface. The project format is still Q-ENG-01."
+            "search, assembly rank, placement error, end-to-end join "
+            "presence, and line recognition. Command names are unfrozen "
+            "and are not a stable interface. The project format is still "
+            "Q-ENG-01."
         ),
     )
     commands = parser.add_subparsers(dest="command", required=True)
@@ -217,6 +232,21 @@ def _parser() -> argparse.ArgumentParser:
     )
     _add_assembly_arguments(presence)
     _add_report_arguments(presence)
+
+    recognize = commands.add_parser(
+        "recognize",
+        help=(
+            "Recognize one operator-supplied line image. "
+            "Unfrozen; not a stable interface."
+        ),
+    )
+    recognize.add_argument("path", type=Path)
+    recognize.add_argument("--model", type=Path, required=True)
+    recognize.add_argument("--label", required=True)
+    recognize.add_argument("--code-version", required=True)
+    recognize.add_argument("--script", default="Grek")
+    recognize.add_argument("--language", default="grc")
+    recognize.add_argument("--expected", default=None)
     return parser
 
 
@@ -364,6 +394,93 @@ def _missing_image_message(path: Path, names: Sequence[str] | None = None) -> st
         return f"{path} is not a fixture image."
     listed = ", ".join(present)
     return f"{path} is not a fixture image. Fragment files: {listed}."
+
+
+def _cmd_recognize(args: argparse.Namespace) -> int:
+    weight_path = require_weight_path(args.model)
+    try:
+        runtime_version = require_htr_group()
+    except HtrGroupMissing as exc:
+        raise ValueError(str(exc)) from exc
+    presented = _line_image_bytes(args.path)
+    prepared = prepare_line_image(presented, expected_hash=args.expected)
+    if not isinstance(prepared, PreparedLine):
+        _print_failure(prepared)
+        return 1
+    weight_bytes = weight_path.read_bytes()
+    try:
+        prediction = predict_line_text(presented, weight_path)
+    except Exception as exc:
+        failed = LineRecognitionLog().fail(
+            prepared,
+            weight_bytes=weight_bytes,
+            label=args.label,
+            script=args.script,
+            language=args.language,
+            code_version=args.code_version,
+            runtime_version=runtime_version,
+            recorded_at=_utc_now(),
+            detail=f"{type(exc).__name__}: {exc}",
+        )
+        _print_failed_recognition(failed)
+        return 1
+    stored = LineRecognitionLog().store(
+        prepared,
+        weight_bytes=weight_bytes,
+        prediction=prediction,
+        label=args.label,
+        script=args.script,
+        language=args.language,
+        code_version=args.code_version,
+        runtime_version=runtime_version,
+        recorded_at=_utc_now(),
+    )
+    _print_recognition(stored)
+    return 0
+
+
+def _line_image_bytes(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise ValueError(f"{path} is not a line image.") from exc
+
+
+def _print_recognition(result: LineRecognition) -> None:
+    _print_record(
+        {
+            "record": "ReadingHypothesis",
+            "epistemic_class": result.reading.epistemic_class,
+            "producer": result.reading.producer,
+            "script": result.reading.script,
+            "language": result.reading.language,
+            "text": result.reading.text,
+            "anchor_id": result.reading.anchor_id,
+            "graphemes": [
+                {
+                    "text": item.text,
+                    "text_status": item.text_status,
+                    "epistemic_class": item.epistemic_class,
+                    "producer": item.producer,
+                }
+                for item in result.graphemes
+            ],
+            "id": result.reading.id,
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+
+
+def _print_failed_recognition(result: FailedLineRecognition) -> None:
+    _print_record(
+        {
+            "record": "FailedLineRecognition",
+            "status": "failed",
+            "run_id": result.run.id,
+            "detail": result.detail,
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
 
 
 def _cmd_verify(args: argparse.Namespace) -> int:
@@ -1312,6 +1429,7 @@ _COMMANDS = {
     "assembly-rank": _cmd_assembly_rank,
     "placement-error": _cmd_placement_error,
     "join-presence": _cmd_join_presence,
+    "recognize": _cmd_recognize,
 }
 
 
