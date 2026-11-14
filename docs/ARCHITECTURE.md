@@ -110,7 +110,7 @@ A runtime dependency is added only with a documented reason and license, and onl
 | Append-only hypotheses | [0006](adr/0006-append-only-hypotheses.md) | Accepted |
 | Project persistence | [0007](adr/0007-project-persistence.md) | Proposed |
 | Rigid rectangular page | [0008](adr/0008-rigid-rectangular-page.md) | Proposed |
-| Separate score channels | [0009](adr/0009-separate-score-channels.md) | Proposed |
+| Separate score channels | [0009](adr/0009-separate-score-channels.md) | Accepted |
 | Local Greek HTR runtime | [0010](adr/0010-local-greek-htr-runtime.md) | Accepted |
 | Frame conventions | [0011](adr/0011-frame-conventions.md) | Accepted |
 | Export types | [0012](adr/0012-export-types.md) | Accepted |

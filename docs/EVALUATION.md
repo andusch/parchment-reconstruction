@@ -111,7 +111,7 @@ Inter-annotator agreement on outlines waits on [Q-SCI-17](#q-sci-17).
 
 Once fixtures exist, a development set and an evaluation set stay separate. Parameters, K, N, normalization, and any fusion policy are written into the benchmark record before evaluation-set scoring. A result computed after changing those choices on the evaluation set is exploratory. It is not the confirmatory comparison required for an algorithm change.
 
-Fusion weights stay unused until [Q-SCI-09](ALGORITHM.md#q-sci-09) accepts a policy. A benchmark does not introduce a private fusion to improve a headline number.
+The fusion policy is accepted: a declared weighted sum in the parameter blob ([Q-SCI-09](ALGORITHM.md#q-sci-09), closed by [P6-01](../tasks/P6-01.md) and [ADR-0009](adr/0009-separate-score-channels.md) option 2). Fusion weights stay unused until a later implementation writes that declared sum into the parameter blob. A benchmark does not introduce a private fusion to improve a headline number. That later implementation includes a benchmark comparison on the frozen fixture.
 
 ## Reporting
 

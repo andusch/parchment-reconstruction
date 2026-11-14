@@ -4,7 +4,7 @@
 - Phase: P0 (contracts only)
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Geometry proposal: [ADR-0008](adr/0008-rigid-rectangular-page.md)
-- Score channels: [ADR-0009](adr/0009-separate-score-channels.md)
+- Score channels: [ADR-0009](adr/0009-separate-score-channels.md), accepted as option 2 by [P6-01](../tasks/P6-01.md)
 
 P0 states inputs, outputs, invariants, and failure behavior. It does not implement stages, and it does not publish weights as valid.
 
@@ -88,7 +88,7 @@ Script and abbreviation scope are [Q-SCI-04](#q-sci-04), closed by [ADR-0010](ad
 - **Outputs.** A `language` score channel on hypotheses the physical search already admitted, plus a `ScreeningEvent` for each gate outcome (`admitted` or `excluded`).
 - **Failure.** When the stage has no eligible graphemes, it writes no language score. It does not fill the gap with generated letters. An exclusion is a `ScreeningEvent`, not a missing row that looks like a hypothesis never scored.
 
-The stage does not create a join that geometry rejected. Supplied letters are excluded unless [Q-SCI-05](#q-sci-05) is accepted.
+The stage does not create a join that geometry rejected. Supplied letters may be scored only with an explicit label and a recorded treatment ([Q-SCI-05](#q-sci-05), closed by [P6-01](../tasks/P6-01.md)). Training on scholarly restoration stays out of scope. The scorer remains unimplemented.
 
 ### 10. Present channels
 
@@ -96,14 +96,14 @@ The stage does not create a join that geometry rejected. Supplied letters are ex
 - **Outputs.** The same records, each ranked inside its own `(run, hypothesis_type, channel)`, ready for human review. The UI shows one type and one channel at a time.
 - **Failure.** A request for a cross-type total order fails presentation. The runner does not invent a fused key.
 
-Default fusion is [Q-SCI-09](#q-sci-09). Until that question closes, presentation keeps `physical`, `htr`, and `language` separate.
+The fusion policy is accepted ([Q-SCI-09](#q-sci-09), closed by [P6-01](../tasks/P6-01.md) and [ADR-0009](adr/0009-separate-score-channels.md) option 2). Channels stay stored separately. The accepted default sort is a declared weighted sum in the parameter blob. This close-out does not implement the sum or write weights. Until a later ticket implements it, presentation keeps the channels separate and does not invent a fused key.
 
 ## Invariants
 
 - Never edit source pixels.
 - Never invent ink. A grapheme with text is a human reading or an HTR reading, and the text status says which. A reading is `interpretation`. Supplied text is a `hypothesis` on a scholarly restoration. It is not a grapheme text status.
 - Never let the language score create a join that geometry rejected.
-- Never train or score language using `supplied` text unless Q-SCI-05 is accepted.
+- Never train language on `supplied` text or on a scholarly restoration. Score `supplied` text only with an explicit label and a recorded treatment ([Q-SCI-05](#q-sci-05), closed by [P6-01](../tasks/P6-01.md)).
 - Record every parameter in the provenance envelope. Record `random_seed` when the algorithm used randomness. Omit it when the algorithm is deterministic.
 - Keep near-duplicate assemblies out of top-N only after Q-SCI-08 defines diversity. Until then, do not apply a diversity filter.
 - A top-ranked hypothesis remains a hypothesis.
@@ -174,10 +174,9 @@ Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P
 
 May language scoring cross a physical gap using supplied letters?
 
-Supplied letters are scholarly restoration. Scoring them as if they were observed ink feeds the editorial guess back into the ranking.
+Closed by [P6-01](../tasks/P6-01.md). No ADR: the question does not touch evidence semantics, project format, a public API, or privacy policy. Supplied text already has epistemic class `hypothesis` on a scholarly restoration. This scoring treatment does not re-type a grapheme. Andu approved the policy on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../tasks/P5-04.md) (PR #28) merged to master. Yes, include supplied text with an explicit label and a recorded treatment. Language scoring may use supplied letters only with that label and treatment. Language still does not create a join that geometry rejected. Training on scholarly restoration stays out of scope. The language scorer remains unimplemented.
 
-- Options: no, score only `human_read`, `unclear`, and `ocr_inferred` text; yes, include `supplied` text with an explicit label and a recorded treatment; yes, with no distinction.
-- Blocks: P6. Until the question closes, the language stage excludes `supplied` text.
+- Blocks: nothing further for this policy. The language scorer remains unimplemented.
 
 
 
@@ -207,10 +206,9 @@ Without a diversity rule, the top of the list can be the same placement with tin
 
 May score channels be fused for a default sort, and by which policy?
 
-A single sort key can hide a strong physical join with a weak language score, or the reverse.
+Closed by [ADR-0009](adr/0009-separate-score-channels.md), accepted as option 2, and by [P6-01](../tasks/P6-01.md). Andu accepted the ADR on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../tasks/P5-04.md) (PR #28) merged to master. Store `physical`, `htr`, and `language` as separate channels, and also allow a declared weighted sum in the parameter blob as the default sort. This close-out does not pick weight values and does not write a fused value. Accepting option 2 is an algorithm change. The later implementation needs a benchmark comparison on the frozen fixture. This close-out does not write that comparison. Language scoring may annotate only hypotheses the physical search already admitted. It does not create joins. Scores remain uncalibrated ranking features. They are not probabilities.
 
-- Options: do not fuse, and let the scholar choose the sort channel; a declared weighted sum stored in the parameter blob; a learned fusion after a separate study.
-- Blocks: a fused default sort in P6. [ADR-0009](adr/0009-separate-score-channels.md) recommends separate channels until this question closes.
+- Blocks: nothing further for the fusion policy. The declared weighted sum remains unimplemented.
 
 
 

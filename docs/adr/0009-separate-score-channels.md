@@ -1,11 +1,13 @@
 # ADR 0009: Separate score channels
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-07
 
 ## Context
 
 Physical fit, HTR, and language evidence can disagree. A single unlabeled score hides which one carried the rank. [Q-SCI-09](../ALGORITHM.md#q-sci-09) asks whether a default sort may fuse the channels, and under which policy.
+
+This record was proposed on 2026-10-07. Andu accepted it on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../../tasks/P5-04.md) (PR #28) merged to master. The acceptance closes [Q-SCI-09](../OPEN_QUESTIONS.md#q-sci-09). It does not implement fusion or the language scorer. [P6-01](../../tasks/P6-01.md) records the close-out.
 
 ## Options
 
@@ -15,13 +17,13 @@ Physical fit, HTR, and language evidence can disagree. A single unlabeled score 
 
 ## Decision
 
-Not accepted. The recommendation is option 1 until Q-SCI-09 is closed. Language scoring may annotate only hypotheses the physical search already admitted. It does not create joins. This recommendation is not a fusion policy and does not close Q-SCI-09.
+Option 2. Store `physical`, `htr`, and `language` as separate channels, and also allow a declared weighted sum in the parameter blob as the default sort. This acceptance does not pick weight values and does not write a fused value. Language scoring may annotate only hypotheses the physical search already admitted. It does not create joins. Channels remain separately stored. Scores remain uncalibrated ranking features, not probabilities.
 
 ## Consequences
 
-- Presentation fails closed when the run has no declared sort channel, rather than inventing a fused key.
-- A later acceptance of option 2 or 3 is an algorithm change and needs a benchmark comparison on the frozen fixture.
-- Supplied text stays out of the `language` channel unless [Q-SCI-05](../ALGORITHM.md#q-sci-05) is accepted.
+- Until a later ticket implements the declared sum, no fused value is written. Presentation still fails closed when the run has no declared sort, rather than inventing a key. The scholar can still sort by one channel inside one type.
+- Accepting option 2 is an algorithm change and needs a benchmark comparison on the frozen fixture when that fusion is implemented. This close-out does not write the comparison and does not pick weights.
+- Supplied text may enter the `language` channel only with an explicit label and a recorded treatment ([Q-SCI-05](../ALGORITHM.md#q-sci-05), closed by [P6-01](../../tasks/P6-01.md)). Training on scholarly restoration stays out of scope.
 - Scores remain uncalibrated ranking features. They are not stored as probabilities.
 
 ## Related
@@ -29,3 +31,4 @@ Not accepted. The recommendation is option 1 until Q-SCI-09 is closed. Language 
 - [Q-SCI-09](../OPEN_QUESTIONS.md#q-sci-09)
 - [Q-SCI-05](../OPEN_QUESTIONS.md#q-sci-05)
 - [DATA_MODEL.md](../DATA_MODEL.md#score-channels)
+- [P6-01](../../tasks/P6-01.md)

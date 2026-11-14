@@ -125,11 +125,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-05
 
+- **Status.** Closed by [P6-01](../tasks/P6-01.md). No ADR: the question does not touch evidence semantics, project format, a public API, or privacy policy. Supplied text already has epistemic class `hypothesis` on a scholarly restoration. This scoring treatment does not re-type a grapheme. Andu approved the policy on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../tasks/P5-04.md) (PR #28) merged to master.
 - **Owning document.** [ALGORITHM.md](ALGORITHM.md#q-sci-05)
-- **Question.** May language scoring cross a physical gap using supplied letters?
-- **Why it matters.** Supplied letters are scholarly restoration. Scoring them as if they were observed ink feeds the editorial guess back into the ranking.
-- **Options.** No, score only `human_read`, `unclear`, and `ocr_inferred` text; yes, include `supplied` text with an explicit label and a recorded treatment; yes, with no distinction.
-- **Blocks.** P6. Until the question closes, the language stage excludes `supplied` text.
+- **Decision.** Yes, include supplied text with an explicit label and a recorded treatment. Language scoring may use supplied letters only with that label and treatment. Language still does not create a join that geometry rejected. Training on scholarly restoration stays out of scope. The language scorer remains unimplemented.
+- **Blocks.** Nothing further for this policy. The language scorer remains unimplemented.
 
 ### Q-SCI-06
 
@@ -157,11 +156,10 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 ### Q-SCI-09
 
+- **Status.** Closed by [ADR-0009](adr/0009-separate-score-channels.md), accepted as option 2, and by [P6-01](../tasks/P6-01.md). Andu accepted the ADR on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../tasks/P5-04.md) (PR #28) merged to master.
 - **Owning document.** [ALGORITHM.md](ALGORITHM.md#q-sci-09)
-- **Question.** May score channels be fused for a default sort, and by which policy?
-- **Why it matters.** A single sort key can hide a strong physical join with a weak language score, or the reverse.
-- **Options.** Do not fuse, and let the scholar choose the sort channel; a declared weighted sum stored in the parameter blob; a learned fusion after a separate study.
-- **Blocks.** A fused default sort in P6. [ADR-0009](adr/0009-separate-score-channels.md) recommends separate channels until this question closes.
+- **Decision.** Store `physical`, `htr`, and `language` as separate channels, and also allow a declared weighted sum in the parameter blob as the default sort. This close-out does not pick weight values and does not write a fused value. Accepting option 2 is an algorithm change. The later implementation needs a benchmark comparison on the frozen fixture. This close-out does not write that comparison. Language scoring may annotate only hypotheses the physical search already admitted. It does not create joins. Scores remain uncalibrated ranking features. They are not probabilities.
+- **Blocks.** Nothing further for the fusion policy. The declared weighted sum remains unimplemented.
 
 ### Q-SCI-10
 

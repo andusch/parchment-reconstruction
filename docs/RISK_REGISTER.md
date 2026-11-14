@@ -27,8 +27,8 @@ Each entry is open. P0 mitigations are documentary. Residual risk stays until a 
 - **Class.** Scientific
 - **What can go wrong.** Fused scores hide a contradiction between geometry and language.
 - **Consequence.** A sort key prefers a reading that the edges do not support, or hides a sound join with a weak language score.
-- **Current mitigation.** [ADR-0009](adr/0009-separate-score-channels.md) recommends separate `physical`, `htr`, and `language` channels. Fusion waits on [Q-SCI-09](ALGORITHM.md#q-sci-09).
-- **Residual status.** Open until that question stays closed in favor of separate channels or an explicit policy.
+- **Current mitigation.** [ADR-0009](adr/0009-separate-score-channels.md) is accepted as option 2. `physical`, `htr`, and `language` stay stored separately. The accepted default sort is a declared weighted sum in the parameter blob. [P6-01](../tasks/P6-01.md) closed [Q-SCI-09](ALGORITHM.md#q-sci-09) and does not write a fused value. Until a later ticket implements the sum, presentation does not invent a fused key.
+- **Residual status.** Open until that declared sum is implemented and the frozen-fixture comparison is written. A fused key can still hide a contradiction between geometry and language.
 
 ## R-04
 
@@ -59,8 +59,8 @@ Each entry is open. P0 mitigations are documentary. Residual risk stays until a 
 - **Class.** Scientific and integrity
 - **What can go wrong.** Supplied letters leak into language scoring.
 - **Consequence.** Editorial restoration reinforces itself through the `language` channel.
-- **Current mitigation.** The language stage excludes `supplied` text unless [Q-SCI-05](ALGORITHM.md#q-sci-05) is accepted.
-- **Residual status.** Open until P6 implements that exclusion and a test locks it.
+- **Current mitigation.** [Q-SCI-05](ALGORITHM.md#q-sci-05) is closed by [P6-01](../tasks/P6-01.md). Language scoring may use supplied letters only with an explicit label and a recorded treatment. Training on scholarly restoration stays forbidden. The language scorer is not implemented.
+- **Residual status.** Open until P6 implements that labeled treatment and a test locks it.
 
 ## R-08
 

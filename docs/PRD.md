@@ -76,12 +76,12 @@ P0 succeeded when the documents in the [roadmap](ROADMAP.md#p0) exist, question 
 
 ## Working assumptions
 
-These assumptions keep the documents coherent. Each one stays open until its question is closed.
+These assumptions keep the documents coherent. An open item stays labeled until its question is closed.
 
 - A project is a fragment pool plus one or more hypothesized pages. Multi-manuscript collections are outside the first product. Retires with [Q-PRD-02](#q-prd-02).
 - Recto and verso are both captured when both faces exist. How they constrain assembly is undecided. Related: [Q-PRD-03](#q-prd-03).
 - The first geometric discussion assumes an approximately rectangular leaf and rigid placements. See [ADR-0008](adr/0008-rigid-rectangular-page.md).
-- Physical, HTR, and language scores stay on separate channels until a fusion policy is accepted. See [ADR-0009](adr/0009-separate-score-channels.md).
+- Physical, HTR, and language scores stay stored as separate channels. The accepted default sort is a declared weighted sum in the parameter blob. [ADR-0009](adr/0009-separate-score-channels.md) is accepted as option 2. [P6-01](../tasks/P6-01.md) records that acceptance and does not implement the sum.
 
 ## Open questions
 
