@@ -143,7 +143,7 @@ HTR runtime: ONNX Runtime, PyTorch, or an external local binary?
 
 Closed by [ADR-0010](adr/0010-local-greek-htr-runtime.md) and [P5-01](../tasks/P5-01.md). The product-facing HTR runtime is Kraken >= 7.1.0. This supersedes an earlier lean toward PyTorch with local weights. Kraken uses PyTorch underneath. A first-party `torch.load` trainer is not the runtime. Weights are the local file `medium.safetensors` (PP-OCRv6 medium). The default process does not download them. [P5-02](../tasks/P5-02.md) adds Kraken >= 7.1.0 in the optional `htr` group and the unfrozen `recognize` command. The group is not a default group. The Kraken package license is Apache-2.0, recorded on that ticket. A weight download remains a separate approval. The weight license is Apache-2.0, recorded in the ADR. The model was chosen because it is the licensed multi-corpus Ancient Greek handwriting model. Licensed alternatives that were found are also Kraken models. The only native `.pt` candidate found had no license on its model card.
 
-- Blocks: nothing further for the runtime choice. P5 is not complete. A character-error number stays [Q-SCI-16](EVALUATION.md#q-sci-16). [Q-SCI-06](DATA_MODEL.md#q-sci-06) and [Q-SCI-13](DATA_MODEL.md#q-sci-13) stay open.
+- Blocks: nothing further for the runtime choice. P5 is not complete. [Q-SCI-16](EVALUATION.md#q-sci-16) is closed by [P5-03](../tasks/P5-03.md). The abbreviation policy is frozen. A later ticket may implement the workbench character-error report. [Q-SCI-06](DATA_MODEL.md#q-sci-06) and [Q-SCI-13](DATA_MODEL.md#q-sci-13) stay open.
 
 ### Q-ENG-04
 
