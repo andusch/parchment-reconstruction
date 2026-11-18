@@ -7,7 +7,7 @@
 
 Physical fit, HTR, and language evidence can disagree. A single unlabeled score hides which one carried the rank. [Q-SCI-09](../ALGORITHM.md#q-sci-09) asks whether a default sort may fuse the channels, and under which policy.
 
-This record was proposed on 2026-10-07. Andu accepted it on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../../tasks/P5-04.md) (PR #28) merged to master. The acceptance closes [Q-SCI-09](../OPEN_QUESTIONS.md#q-sci-09). It does not implement fusion or the language scorer. [P6-01](../../tasks/P6-01.md) records the close-out.
+This record was proposed on 2026-10-07. Andu accepted it on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../../tasks/P5-04.md) (PR #28) merged to master. The acceptance closes [Q-SCI-09](../OPEN_QUESTIONS.md#q-sci-09). The acceptance does not implement fusion. [P6-01](../../tasks/P6-01.md) records the close-out. [P6-02](../../tasks/P6-02.md) implements the `language` channel and does not write a fused value.
 
 ## Options
 

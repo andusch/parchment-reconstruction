@@ -49,7 +49,7 @@ The import package is `prw` (distribution `parchment-workbench`). The minimum Py
 | `joins` | Pairwise join hypotheses and the `physical` score channel. |
 | `assemblies` | Top-N page placements in `page_global_mm`. |
 | `htr` | Local Ancient Greek HTR, stored as text status `ocr_inferred`, class `interpretation`, producer `machine`. |
-| `language` | The `language` score channel on hypotheses the physical search admitted. |
+| `language` | The `language` score channel on hypotheses the physical search admitted. [P6-02](../tasks/P6-02.md) implements `admitted_reading_language` version `1`. |
 | `validation` | Append validation decisions and scholarly restorations. |
 | `export` | Write an auditable bundle. |
 | `store` | Read and write the project directory. Schema version lives here. |

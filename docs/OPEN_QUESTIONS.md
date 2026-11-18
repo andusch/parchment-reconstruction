@@ -127,8 +127,8 @@ Renaming the stored status `ocr_inferred` to `htr_inferred` is an evidence-seman
 
 - **Status.** Closed by [P6-01](../tasks/P6-01.md). No ADR: the question does not touch evidence semantics, project format, a public API, or privacy policy. Supplied text already has epistemic class `hypothesis` on a scholarly restoration. This scoring treatment does not re-type a grapheme. Andu approved the policy on 2026-11-15 (Asia/Hong_Kong), in the Elon · Coding chat, after [P5-04](../tasks/P5-04.md) (PR #28) merged to master.
 - **Owning document.** [ALGORITHM.md](ALGORITHM.md#q-sci-05)
-- **Decision.** Yes, include supplied text with an explicit label and a recorded treatment. Language scoring may use supplied letters only with that label and treatment. Language still does not create a join that geometry rejected. Training on scholarly restoration stays out of scope. The language scorer remains unimplemented.
-- **Blocks.** Nothing further for this policy. The language scorer remains unimplemented.
+- **Decision.** Yes, include supplied text with an explicit label and a recorded treatment. Language scoring may use supplied letters only with that label and treatment. Language still does not create a join that geometry rejected. Training on scholarly restoration stays out of scope. [P6-02](../tasks/P6-02.md) implements `admitted_reading_language` version `1`. Supplied letters enter a score only with the label and treatment recorded in that run's parameter blob. The stage still does not train on scholarly restoration and does not create a join.
+- **Blocks.** Nothing further for this policy. The language-score quality report, the declared weighted sum, and calibration-uncertainty propagation remain unimplemented.
 
 ### Q-SCI-06
 

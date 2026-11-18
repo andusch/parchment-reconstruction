@@ -6,17 +6,19 @@ The use cases are ``prw.ingest``, ``prw.frames``, ``prw.provenance``,
 ``prw.join_rank``, ``prw.join_recall``, ``prw.assembly_search``,
 ``prw.assembly_rank``, ``prw.placement_error``,
 ``prw.assembly_join_presence``, ``prw.recognize``,
-``prw.synthetic_line``, and ``prw.character_error``. Command names and
-flags are unfrozen. They are not a stable interface. The project format
-is still Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This module does not
-import Qt, does not open a network connection, does not start a worker,
-and does not write ``manifest.json`` or ``originals/``. A pool image is
-one repeated flag with a label and an existing path. A missing path is
-an error that lists the fragment names in the sibling
+``prw.synthetic_line``, ``prw.character_error``, and ``prw.language``.
+Command names and flags are unfrozen. They are not a stable interface.
+The project format is still Q-ENG-01 in ``docs/OPEN_QUESTIONS.md``. This
+module does not import Qt, does not open a network connection, does not
+start a worker, and does not write ``manifest.json`` or ``originals/``.
+A pool image is one repeated flag with a label and an existing path. A
+missing path is an error that lists the fragment names in the sibling
 ``image_manifest.json``. The recognizer reads one operator-supplied line
 image and a local ``medium.safetensors`` file. It does not download
 weights. ``character-error`` reports character error rate for a line
 fixture. It does not download weights. The synthetic reader uses no model.
+``language`` scores hypotheses a physical gate already admitted. It does
+not download weights and it does not create a join.
 """
 
 from __future__ import annotations
@@ -52,6 +54,13 @@ from prw.ingest import (
 from prw.join_rank import physical_join_order
 from prw.join_recall import write_join_recall
 from prw.joins import JoinHypothesis
+from prw.language import (
+    LanguageAnnotation,
+    LanguageScoreLog,
+    LanguageScoreRun,
+    load_language_input,
+    one_hypothesis_request,
+)
 from prw.lossless_tiff import TiffDecodeFailure
 from prw.outline_agreement import write_outline_agreement
 from prw.outlines import Fragment, FragmentOutlineRevision
@@ -133,8 +142,8 @@ def _parser() -> argparse.ArgumentParser:
             "fixture generator, segmentation, caller-supplied scale, outline "
             "agreement, chord edges, pairwise joins, join recall, assembly "
             "search, assembly rank, placement error, end-to-end join "
-            "presence, line recognition, and character error. Command "
-            "names are unfrozen "
+            "presence, line recognition, character error, and language "
+            "scoring. Command names are unfrozen "
             "and are not a stable interface. The project format is still "
             "Q-ENG-01."
         ),
@@ -289,6 +298,28 @@ def _parser() -> argparse.ArgumentParser:
             "Omit to score the synthetic line reader. Weights are not downloaded."
         ),
     )
+
+    language = commands.add_parser(
+        "language",
+        help=(
+            "Score the language channel on admitted hypotheses. "
+            "Unfrozen; not a stable interface."
+        ),
+    )
+    language.add_argument("--input", type=Path, default=None)
+    language.add_argument("--code-version", required=True)
+    language.add_argument("--recorded-at", required=True)
+    language.add_argument("--source-hash", action="append", default=[])
+    language.add_argument("--hypothesis-id", default=None)
+    language.add_argument("--hypothesis-type", default=None)
+    language.add_argument("--physical-run-id", default=None)
+    language.add_argument("--physical-outcome", default=None)
+    language.add_argument("--script", default=None)
+    language.add_argument("--language", dest="language_tag", default=None)
+    language.add_argument("--grapheme", action="append", default=[])
+    language.add_argument("--supplied-text", default=None)
+    language.add_argument("--supplied-label", default=None)
+    language.add_argument("--supplied-treatment", default=None)
     return parser
 
 
@@ -1643,6 +1674,108 @@ def _parse_point(text: str) -> tuple[float, float]:
         raise ValueError("A polygon vertex is x,y.") from exc
 
 
+def _cmd_language(args: argparse.Namespace) -> int:
+    if args.input is not None and _language_flags_present(args):
+        raise ValueError("Language input is a JSON file or flags, not both.")
+    if args.input is not None:
+        request = load_language_input(args.input)
+    else:
+        hypothesis_id = _cli_uuid(args.hypothesis_id, "hypothesis_id")
+        if hypothesis_id is None or args.hypothesis_type is None:
+            raise ValueError("Language input is a JSON file or one hypothesis.")
+        if args.script is None or args.language_tag is None:
+            raise ValueError("script and language are non-empty tags.")
+        request = one_hypothesis_request(
+            source_hashes=tuple(args.source_hash),
+            hypothesis_id=hypothesis_id,
+            hypothesis_type=args.hypothesis_type,
+            script=args.script,
+            language=args.language_tag,
+            graphemes=tuple(_parse_grapheme_flag(item) for item in args.grapheme),
+            physical_run_id=_cli_uuid(args.physical_run_id, "physical_run_id"),
+            physical_outcome=args.physical_outcome,
+            supplied_text=args.supplied_text,
+            supplied_label=args.supplied_label,
+            supplied_treatment=args.supplied_treatment,
+        )
+    result = LanguageScoreLog().score(
+        request,
+        code_version=args.code_version,
+        recorded_at=args.recorded_at,
+    )
+    _print_language(result)
+    return 0
+
+
+def _language_flags_present(args: argparse.Namespace) -> bool:
+    return any(
+        (
+            args.hypothesis_id is not None,
+            args.hypothesis_type is not None,
+            args.physical_outcome is not None,
+            args.physical_run_id is not None,
+            bool(args.source_hash),
+            bool(args.grapheme),
+            args.script is not None,
+            args.language_tag is not None,
+            args.supplied_text is not None,
+            args.supplied_label is not None,
+            args.supplied_treatment is not None,
+        )
+    )
+
+
+def _cli_uuid(value: str | None, label: str) -> uuid.UUID | None:
+    if value is None:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError as exc:
+        raise ValueError(f"{label} is a UUID.") from exc
+
+
+def _parse_grapheme_flag(token: str) -> tuple[str, str]:
+    text, separator, status = token.rpartition("=")
+    if separator != "=" or text == "" or status == "":
+        raise ValueError("A grapheme is text=text_status.")
+    return text, status
+
+
+def _print_language(result: LanguageScoreRun) -> None:
+    def annotation(item: LanguageAnnotation) -> dict[str, Any]:
+        return {
+            "hypothesis_id": item.hypothesis_id,
+            "hypothesis_type": item.hypothesis_type,
+            "score": {
+                "value": item.score.value,
+                "run_id": item.score.run_id,
+                "channel": item.score.channel,
+                "hypothesis_type": item.score.hypothesis_type,
+            },
+        }
+
+    _print_record(
+        {
+            "record": "LanguageScores",
+            "run_id": result.run.id,
+            "status": result.run.status,
+            "joins": [annotation(item) for item in result.joins],
+            "assemblies": [annotation(item) for item in result.assemblies],
+            "screening": [
+                {
+                    "id": event.id,
+                    "hypothesis_id": event.hypothesis_id,
+                    "gate": event.gate,
+                    "outcome": event.outcome,
+                    "run_id": event.run_id,
+                }
+                for event in result.screening
+            ],
+            "envelope": _envelope_payload(result.run.provenance),
+        }
+    )
+
+
 _COMMANDS = {
     "verify": _cmd_verify,
     "frame": _cmd_frame,
@@ -1659,6 +1792,7 @@ _COMMANDS = {
     "join-presence": _cmd_join_presence,
     "recognize": _cmd_recognize,
     "character-error": _cmd_character_error,
+    "language": _cmd_language,
 }
 
 

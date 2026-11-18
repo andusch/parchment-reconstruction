@@ -88,7 +88,7 @@ Each metric has a unit and a limit on what it means. No target threshold is set 
 ### Language-score quality
 
 - **Unit.** The fraction of evaluation items on which the `language` channel ranks a known reading above a stated alternative. The known reading and the alternative are frozen with the fixture.
-- **Does not measure.** Character error rate. Perplexity is not this metric and is not reported as accuracy.
+- **Does not measure.** Character error rate. Perplexity is not this metric and is not reported as accuracy. [P6-02](../tasks/P6-02.md) writes `eligible_nfc_code_point_count` and does not write this report. That count is not this fraction.
 
 ### End-to-end join presence
 
