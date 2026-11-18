@@ -20,7 +20,7 @@ Segment a fragment prints one machine outline for a seeded TIFF. Without a scale
 - Add `--pixels-per-mm N --uncertainty N` together to scale the outline into millimetres.
 - Add `--claimed-ppi N` to record a claimed resolution. Omit the measurement pair.
 - Add `--enclosed-background-treatment fill_without_4_interior` to name that fill rule. Omit the flag to leave the hole check unchanged.
-- Add `--border-mount-treatment not_above_frame_split` to reclassify the border-connected darker side of the frame split. Omit the flag to leave the threshold mask unchanged.
+- Add `--border-mount-treatment not_above_frame_split` to reclassify the border-connected darker side of the frame split. `frame_mode_support` is the other choice and is not this full-bleed seed. Omit the flag to leave the threshold mask unchanged.
 
 ## Driving it with verify-prw
 
@@ -45,6 +45,6 @@ Preconditions:
 - `--pixels-per-mm` and `--uncertainty` are supplied together. One without the other exits `2` and stderr contains `pixels_per_mm and uncertainty are supplied together.`
 - `--claimed-ppi 400` records a claim. `calibration` stays `absent`. The number is not a measured `pixels_per_mm`, and the command does not read a TIFF resolution tag. Passing it with either measurement flag exits `2`.
 - `--enclosed-background-treatment fill_without_4_interior` fills enclosed background that contains no 4-interior pixel. On this seed the polygon matches the untreated outline. Omit the flag and the blob stays `{"foreground_threshold":1}`. A component that does contain that element still fails as `hole`.
-- `--border-mount-treatment not_above_frame_split` reclassifies the border-connected darker side of the frame's Otsu split. On this seed the fragment fills the frame, so the run is `no_foreground` and prints no polygon. Omit the flag and the pixels step is unchanged. A bright speck that stays disconnected still fails as `multiple_components`. The two treatment flags are independent.
+- `--border-mount-treatment not_above_frame_split` reclassifies the border-connected darker side of the frame's Otsu split. On this seed the fragment fills the frame, so the run is `no_foreground` and prints no polygon. Omit the flag and the pixels step is unchanged. A bright speck that stays disconnected still fails as `multiple_components`. The two treatment flags are independent. `frame_mode_support` is a separate choice. This seed does not exercise it.
 - `--foreground-threshold` is an integer from `0` through `255`. These seeded images are segmented at `1`.
 - A checksum mismatch prints no polygon. A usage error exits `2` with empty stdout.

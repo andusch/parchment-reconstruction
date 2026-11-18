@@ -16,7 +16,7 @@ Rank joins prints pairwise join hypotheses in `physical` score order. The comman
 
 - Run `prw rank --image LABEL PATH --image LABEL PATH --foreground-threshold N --code-version CODE --pixels-per-mm N --uncertainty N` in a terminal. Repeat `--image` once per fragment.
 - Pass `--claimed-ppi N` without the measurement pair to record a claim that does not scale the join.
-- Pass `--border-mount-treatment not_above_frame_split` to apply that segmentation rule. It does not supply a scale.
+- Pass `--border-mount-treatment not_above_frame_split` to apply that segmentation rule. `frame_mode_support` is the other choice and is not this full-bleed seed. The flag does not supply a scale.
 
 ## Driving it with verify-prw
 

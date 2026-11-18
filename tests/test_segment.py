@@ -14,6 +14,7 @@ from prw.outlines import FragmentOutlineRevision
 from prw.provenance import AlgorithmRun
 from prw.segment import (
     FILL_WITHOUT_4_INTERIOR,
+    FRAME_MODE_SUPPORT,
     NOT_ABOVE_FRAME_SPLIT,
     FailedSegmentation,
     SegmentationLog,
@@ -483,6 +484,77 @@ def test_mount_treatment_keeps_a_bright_edge_and_a_second_component() -> None:
     assert isinstance(failed, FailedSegmentation)
     assert failed.kind == "multiple_components"
     assert not hasattr(failed, "polygon")
+
+
+def test_frame_mode_support_keeps_the_leaf_and_drops_mat_residue() -> None:
+    piece = _rectangle_pixels(8, 8, 21, 21)
+    speck = set(piece)
+    speck.add((3, 15))
+    payload = _mounted(30, 30, mount=20, piece=speck, piece_level=180)
+    treated = _segment(SegmentationLog(), payload, mount=FRAME_MODE_SUPPORT)
+    plain = _segment(SegmentationLog(), payload)
+    assert isinstance(treated, SegmentedOutline)
+    assert isinstance(plain, SegmentedOutline)
+    assert treated.outline.polygon == (
+        (8.0, 8.0),
+        (21.0, 8.0),
+        (21.0, 21.0),
+        (8.0, 21.0),
+    )
+    assert plain.outline.polygon[0] == (0.0, 0.0)
+    assert (0.0, 0.0) not in treated.outline.polygon
+    assert (29.0, 29.0) not in treated.outline.polygon
+    assert treated.outline.epistemic_class == "interpretation"
+    assert treated.outline.producer == "machine"
+    blob = json.loads(treated.run.provenance.parameter_blob)
+    assert blob == {
+        "border_mount_treatment": "frame_mode_support",
+        "foreground_threshold": 1,
+        "frame_inset_divisor": 10,
+        "mat_mode_offset": 32,
+        "support_inradius": 1,
+    }
+    assert treated.run.provenance.algorithm_version == "1"
+    assert treated.run.provenance.model_hash == "absent"
+    assert "random_seed" not in treated.run.provenance.content_mapping()
+    assert "enclosed_background_treatment" not in blob
+
+
+def test_frame_mode_support_keeps_a_deep_second_component() -> None:
+    piece = _rectangle_pixels(8, 8, 16, 16) | _rectangle_pixels(22, 22, 32, 32)
+    payload = _mounted(40, 40, mount=20, piece=piece, piece_level=180)
+    failed = _segment(SegmentationLog(), payload, mount=FRAME_MODE_SUPPORT)
+    assert isinstance(failed, FailedSegmentation)
+    assert failed.kind == "multiple_components"
+    assert not hasattr(failed, "polygon")
+
+
+def test_frame_mode_support_drops_a_frame_hugging_block() -> None:
+    piece = _rectangle_pixels(12, 12, 28, 28) | _rectangle_pixels(0, 0, 4, 4)
+    payload = _mounted(40, 40, mount=20, piece=piece, piece_level=180)
+    treated = _segment(SegmentationLog(), payload, mount=FRAME_MODE_SUPPORT)
+    assert isinstance(treated, SegmentedOutline)
+    assert treated.outline.polygon == (
+        (12.0, 12.0),
+        (28.0, 12.0),
+        (28.0, 28.0),
+        (12.0, 28.0),
+    )
+    assert (0.0, 0.0) not in treated.outline.polygon
+
+
+def test_frame_mode_support_includes_an_enclosed_dark_mark() -> None:
+    piece = _rectangle_pixels(8, 8, 24, 24)
+    zeros = _rectangle_pixels(14, 14, 16, 16)
+    payload = _mounted(32, 32, mount=20, piece=piece, piece_level=180, zeros=zeros)
+    treated = _segment(SegmentationLog(), payload, mount=FRAME_MODE_SUPPORT)
+    assert isinstance(treated, SegmentedOutline)
+    assert treated.outline.polygon == (
+        (8.0, 8.0),
+        (24.0, 8.0),
+        (24.0, 24.0),
+        (8.0, 24.0),
+    )
 
 
 def test_unknown_mount_treatment_is_rejected() -> None:
