@@ -40,6 +40,7 @@ EXPECTED_COMMANDS = (
     "frame",
     "generate",
     "join-presence",
+    "language",
     "placement-error",
     "provenance",
     "rank",

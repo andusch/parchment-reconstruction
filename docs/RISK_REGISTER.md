@@ -59,8 +59,8 @@ Each entry is open. P0 mitigations are documentary. Residual risk stays until a 
 - **Class.** Scientific and integrity
 - **What can go wrong.** Supplied letters leak into language scoring.
 - **Consequence.** Editorial restoration reinforces itself through the `language` channel.
-- **Current mitigation.** [Q-SCI-05](ALGORITHM.md#q-sci-05) is closed by [P6-01](../tasks/P6-01.md). Language scoring may use supplied letters only with an explicit label and a recorded treatment. Training on scholarly restoration stays forbidden. The language scorer is not implemented.
-- **Residual status.** Open until P6 implements that labeled treatment and a test locks it.
+- **Current mitigation.** [Q-SCI-05](ALGORITHM.md#q-sci-05) is closed by [P6-01](../tasks/P6-01.md). [P6-02](../tasks/P6-02.md) implements `admitted_reading_language` version `1`. Supplied letters enter a score only with an explicit label and a recorded treatment, and only when eligible graphemes are already present. A test refuses a missing label or treatment. Training on scholarly restoration stays forbidden.
+- **Residual status.** Open for any later path that scores supplied letters without copying the label and the treatment into the parameter blob. The current scorer copies both. Labeled supplied letters still enter an admitted score, which is the accepted policy.
 
 ## R-08
 

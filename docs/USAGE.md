@@ -34,7 +34,7 @@ Stdout of each command below is one JSON object, with sorted keys and no insigni
 uv run prw --help
 ```
 
-The help text names these fifteen commands: `agree`, `assemble`, `assembly-rank`, `character-error`, `edge`, `frame`, `generate`, `join-presence`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, `verify`.
+The help text names these sixteen commands: `agree`, `assemble`, `assembly-rank`, `character-error`, `edge`, `frame`, `generate`, `join-presence`, `language`, `placement-error`, `provenance`, `rank`, `recall`, `recognize`, `segment`, `verify`.
 
 ## 2. Generate a synthetic leaf
 
@@ -491,11 +491,37 @@ That quotient is the measurement for this fixture. It does not measure Ancient G
 
 A later report writes `character-error-0002.json` and leaves `character-error-0001.json` in place.
 
+## 15. Score language
+
+`language` writes a `language` score for one join or assembly the physical gate already admitted. It is unfrozen and is not a stable interface. It does not read an image, does not download weights, and does not write a project database. The score is `eligible_nfc_code_point_count`: the number of Unicode code points in the grapheme texts. It is not a probability. `model_hash` is `absent`. The envelope omits `random_seed`.
+
+Pass one hypothesis with flags. `--source-hash` is a `sha256:` digest you already have. This example uses the digest of the bytes `synthetic-language-source`. The command does not open those bytes.
+
+```bash
+uv run prw language \
+  --code-version "$CODE" \
+  --recorded-at 2020-01-01T00:00:00Z \
+  --source-hash sha256:4398e645c2b2c267bd45ffb7b311675733cad13046538fc0ee9e767ace05b51f \
+  --hypothesis-id 00000000-0000-4000-8000-000000000001 \
+  --hypothesis-type join \
+  --physical-run-id 00000000-0000-4000-8000-000000000002 \
+  --physical-outcome admitted \
+  --script Grek \
+  --language grc \
+  --grapheme ab=ocr_inferred
+```
+
+Exit `0`. `record` is `LanguageScores`. `status` is `completed`. `envelope.algorithm_name` is `admitted_reading_language`. `envelope.algorithm_version` is `1`. `envelope.model_hash` is `absent`. The envelope has no `random_seed` key. `joins` has one object. Its `score.channel` is `language` and its `score.value` is `2`. `assemblies` is empty. `screening` has one object with `gate` `language` and `outcome` `admitted`. The same arguments print the same `run_id`.
+
+`--physical-outcome excluded` keeps `joins` empty and sets `screening[0].outcome` to `excluded`. The object has no `JoinHypothesis`. Omitting `--grapheme` on an admitted hypothesis does the same: no score, and the outcome is `excluded`. Supplied letters are `--supplied-text`, `--supplied-label`, and `--supplied-treatment` together. One of those flags without the other two exits `2`. Stdout is empty.
+
+`--input` reads the same fields from one JSON object. A path under `data/`, `scans/`, or `real_data/`, and a `.tif` path, are refused.
+
 ## What this build leaves for later
 
 [Roadmap](ROADMAP.md) phases after the current CLI are still ahead:
 
-- A line detector and the `language` score channel. `recognize` stores a machine reading and does not score it. `character-error` reports the synthetic-fixture rate under the frozen abbreviation policy. That rate is not a handwriting measurement.
+- A line detector. `recognize` stores a machine reading and does not score it. `language` scores graphemes you already have. It does not detect lines and it does not report language-score quality. `character-error` reports the synthetic-fixture rate under the frozen abbreviation policy. That rate is not a handwriting measurement and it is not the language-score quality metric.
 - Readings, assemblies, and HTR in the Qt window. The review window shows ranked joins only. Detection, search, and later HTR stay off the UI thread when they arrive. A worker process is still open.
 - Scholarly export.
 - A stored project. The CLI does not write `manifest.json` or `originals/`.
