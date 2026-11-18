@@ -1,9 +1,10 @@
 # Cleveland 1999.137 retry
 
-- Status: Working note. The third retry is blocked. Segmentation fails and stores no outline.
+- Status: Working note. The fourth retry stores one outline per file. The outlines are interpretations. No join was stored.
 - First run: 13 November 2026, checkout `6f64d082be2de162876c4447a1d457bf08165bde` (merge of PR #18). That run is the section [First retry](#first-retry).
 - Second run: 13 November 2026, code version `77c4ff9dd48ff2f0e6639437b8a60e774d98e093`. That run is the section [Second retry](#second-retry).
 - Third run: 13 November 2026, code version `ce08a426236413031e14eccc5a341b58a27dbafe`. That run is the section [Third retry](#third-retry).
+- Fourth run: 19 November 2026, code version `94e9d5a2e0da6d88d0d7fed9da06f585c7e0e3c2`. That run is the section [Fourth retry](#fourth-retry).
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 
 The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On this machine that directory was `/home/ubuntu/prw-pilot/1999.137`. Text sidecars sit beside the files and are not in Git. [`.gitignore`](../.gitignore) ignores `*.tif` and `*.tiff`. The files were never under `data/`, `scans/`, or `real_data/`.
@@ -11,6 +12,77 @@ The three TIFFs stayed outside the clone, under `$HOME/prw-pilot/1999.137/`. On 
 The Cleveland catalogue groups these three cuttings under accession `1999.137`. The object-page text read on this day does not say they are torn mates, and it does not say that an edge of one meets an edge of another. This note does not treat them as mates. It does not treat a join as a reconstruction. No join was emitted.
 
 [1951.314](pilot-first-run.md) was not opened. The group file `1999.137_full.tif` was not downloaded, and no whole leaf was cut to make a pool.
+
+## Fourth retry
+
+Code version passed to every pixel command: `94e9d5a2e0da6d88d0d7fed9da06f585c7e0e3c2`. That commit names `--border-mount-treatment frame_mode_support`. The bytes are the [source table](#source-and-license). The license-and-hash check dated 19 November 2026 records `share_license_status` `CC0` for `1999.137` and for `1999.137.1`–`1999.137.3`. A read of those four API records for this run returned the same status. `sha256sum` of the three files matched the table before the commands and again after them. The files were not edited.
+
+`CODE` below is `94e9d5a2e0da6d88d0d7fed9da06f585c7e0e3c2`. `LEAF` is `/home/ubuntu/prw-pilot/1999.137`. On this machine that path is `$HOME/prw-pilot/1999.137`. The three TIFFs sit in that directory and are not in the clone.
+
+The rule is one mount treatment. The ceiling is the modal luminance of the one-pixel frame plus 32. A tie in the mode keeps the lower luminance. Samples at or below the ceiling that are 4-connected to the frame are mat. A dark sample the flood does not reach stays in the cutting, including a sample below the foreground threshold. A foreground component is then reclassified as mat when its chebyshev distance to background is at most 1, or when no pixel lies farther from the frame than one tenth of the shorter side. The parameter blob records those constants. The component check and the hole check are the same checks as the third retry. `--enclosed-background-treatment` is omitted. The same flags are used on every file.
+
+`prw verify` was run again on each file. Each exited `0`. `record` is `VerifiedBytes`. The ids are the same three ids as the first retry.
+
+```bash
+uv run prw verify "$LEAF/1999.137.1_full.tif"
+uv run prw verify "$LEAF/1999.137.2_full.tif"
+uv run prw verify "$LEAF/1999.137.3_full.tif"
+```
+
+The segmentation on each file:
+
+```bash
+uv run prw segment "$LEAF/1999.137.1_full.tif" \
+  --label 1999.137.1 \
+  --foreground-threshold 1 \
+  --border-mount-treatment frame_mode_support \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.2_full.tif" \
+  --label 1999.137.2 \
+  --foreground-threshold 1 \
+  --border-mount-treatment frame_mode_support \
+  --code-version "$CODE"
+uv run prw segment "$LEAF/1999.137.3_full.tif" \
+  --label 1999.137.3 \
+  --foreground-threshold 1 \
+  --border-mount-treatment frame_mode_support \
+  --code-version "$CODE"
+```
+
+Each exited `0`. `record` is `FragmentOutlineRevision`. `epistemic_class` is `interpretation`. `producer` is `machine`. `frame` is `source_pixels`. `envelope.algorithm_name` is `fragment_outline`. `envelope.algorithm_version` is `1`. `envelope.model_hash` is `absent`. The envelope omits `random_seed`. `envelope.decoder_name` is `lossless_tiff` and `envelope.decoder_version` is `1`. The parameter blob on each file is:
+
+```json
+{"border_mount_treatment":"frame_mode_support","foreground_threshold":1,"frame_inset_divisor":10,"mat_mode_offset":32,"support_inradius":1}
+```
+
+`parameter_hash` is `sha256:29512dc59fdc7769c2862558fdc9c696cc480b85d39e3431352fce29002967b3`.
+
+| Accession | Pixels | Vertices | Outline id | Image corners in the polygon |
+| --- | --- | --- | --- | --- |
+| `1999.137.1` | 1252 by 2048 | 6446 | `9210e225-ea68-5787-b144-f00b073a3807` | neither `(0, 0)` nor `(1251, 2047)` |
+| `1999.137.2` | 1838 by 1536 | 4597 | `8645afbe-ba91-5881-bac7-3e7572c0aa68` | neither `(0, 0)` nor `(1837, 1535)` |
+| `1999.137.3` | 1536 by 1701 | 2823 | `a82834db-61ce-539f-8b9a-53d561b57e5d` | neither `(0, 0)` nor `(1535, 1700)` |
+
+The walk on `1999.137.1` starts at `(720, 0)`. The bounding box of that polygon is `x` 27 through 1234 and `y` 0 through 2040. The walk on `1999.137.2` starts at `(322, 17)`. Its bounding box is `x` 26 through 1817 and `y` 17 through 1523. The walk on `1999.137.3` starts at `(991, 26)`. Its bounding box is `x` 31 through 1509 and `y` 26 through 1686. The vertex lists stay in the command stdout.
+
+Each outline is an interpretation of that mask. `1999.137.1` meets the top edge of the raster. The other two sit inside the frame. A dark passage from the mat into the painting is background under this rule, so the outline can step into a dark border of the painting. A dark opening that does not connect to the frame is part of the cutting. These polygons are the support of each cutting under that rule. They are one component each, from one shared setting.
+
+```bash
+uv run prw rank \
+  --image 1999.137.1 "$LEAF/1999.137.1_full.tif" \
+  --image 1999.137.2 "$LEAF/1999.137.2_full.tif" \
+  --image 1999.137.3 "$LEAF/1999.137.3_full.tif" \
+  --foreground-threshold 1 \
+  --border-mount-treatment frame_mode_support \
+  --claimed-ppi 400 \
+  --code-version "$CODE"
+```
+
+Exit `1`. `record` is `FailedPairwiseJoin`. `status` is `failed`. The object has no `joins` key. `claimed_resolution.evidence_description` is `claimed resolution`. `claimed_resolution.claimed_resolution_ppi` is `400.0`. `claimed_resolution.calibration` is `absent`. The claim envelope's algorithm is `claimed_resolution_scale` version `1`. Its parameter blob is `{"claimed_resolution_ppi":400.0,"evidence_description":"claimed resolution","populates_calibration":false}`. `parameter_hash` is `sha256:c99a1b862f72a5654cd0f8bea5f7a4e65e3a336bdd0064a2c83978f34c93b366`. `model_hash` is `absent`. `random_seed` is omitted. The claim envelope id is `c37e81d9-0be1-5b64-b643-fb3b5cba6dd0`. Its three source hashes are the table digests. `pixels_per_mm` was not printed. `--pixels-per-mm` was not passed. The catalogue size "Each leaf: 17.6 x 9 cm" was not passed. The TIFF header was not read into the claim. The failed join `run_id` includes a random `attempt_id` and is not copied here.
+
+`prw-review` was not opened. There is no join list to smoke.
+
+The component check, the hole check, and the ranker were not loosened. No join hypothesis was invented. The catalogue groups these cuttings. This retry does not say they are torn mates.
 
 ## Third retry
 
@@ -254,4 +326,4 @@ No algorithm version changed. No benchmark comparison was published. No `Benchma
 
 ## What stays open
 
-The second retry's outlines are interpretations of the threshold mask, and they follow the image border. The rank list is empty. The third retry requested the frame-split mount rule, with the enclosed-background fill named on the same command. Each segmentation is `FailedSegmentation` kind `multiple_components`. No outline was stored, and no join was stored. [Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).
+The second retry's outlines are interpretations of the threshold mask, and they follow the image border. The rank list is empty. The third retry requested the frame-split mount rule, with the enclosed-background fill named on the same command. Each segmentation is `FailedSegmentation` kind `multiple_components`. No outline was stored, and no join was stored. The fourth retry, under `frame_mode_support` and foreground threshold 1 on every file, stores one outline per file. Those outlines are interpretations. The rank command exits `1` with `FailedPairwiseJoin` and stores no join. [Q-SCI-15](OPEN_QUESTIONS.md#q-sci-15) stays open for every other corpus and for any accuracy claim. [Q-ENG-01](OPEN_QUESTIONS.md#q-eng-01) stays open. [Q-SCI-10](OPEN_QUESTIONS.md#q-sci-10) stays open. A synthetic pool whose rank list has join hypotheses is [Multi-fragment pool](pilot-multi-fragment-pool.md). Those rows stay hypotheses. One earlier Cleveland file, segmented at this same threshold, is [First public-leaf run](pilot-first-run.md).
