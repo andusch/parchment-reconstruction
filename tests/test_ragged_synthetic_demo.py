@@ -8,10 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NOTE = ROOT / "docs" / "ragged-synthetic-demo.md"
 SCRIPT = ROOT / "samples" / "ragged-leaf" / "run.sh"
-PIN = "1989e7766792018b7b878b277e38da6bf4dfd13e"
-# git rev-parse 1989e7766792018b7b878b277e38da6bf4dfd13e:src/prw
+PIN = "8a6c2e569ed8107cd47848e29005e528ec397a8e"
+PREVIOUS_PIN = "1989e7766792018b7b878b277e38da6bf4dfd13e"
+# git rev-parse 8a6c2e569ed8107cd47848e29005e528ec397a8e:src/prw
 # CI checks out with fetch-depth 1, so that commit object may be absent.
-SRC_PRW_TREE = "6cbcb72986a8b2fc03eb345c0d6a5136c004f122"
+SRC_PRW_TREE = "f18269ba46ce7c03c9d79cc6cb15da92b7702b3f"
 
 
 def _measured_record() -> dict[str, object]:
@@ -105,15 +106,18 @@ def test_ragged_demo_matches_the_note(tmp_path: Path) -> None:
     note = NOTE.read_text(encoding="utf-8")
     script = SCRIPT.read_text(encoding="utf-8")
     assert expected["recall_at_1"] == 0.25
-    assert expected["recall_at_3"] == 0.5
+    assert expected["recall_at_3"] == 0.75
     assert expected["recall_at_1_is_1"] is False
-    assert expected["score_name"] == "negative_absolute_length_difference"
+    assert expected["score_name"] == "negative_chord_gap_plus_curve_and_overlap"
     assert expected["rank_channel"] == "physical"
     assert expected["rank_epistemic_class"] == "hypothesis"
     assert expected["rank_1_is_frozen_join"] is True
     assert expected["placement_scored_pairs_are_frozen_joins"] is False
+    assert "## Previous measured record" in note
+    assert "recall_at_3" in note
     for phrase in (
         PIN,
+        PREVIOUS_PIN,
         "--edge-erosion 0.15",
         "--rotation 0.3",
         "--lighting-variation 0.25",
@@ -122,6 +126,7 @@ def test_ragged_demo_matches_the_note(tmp_path: Path) -> None:
         "--minimum-edge-length-mm 6",
         "--k 1",
         "--k 3",
+        "negative_chord_gap_plus_curve_and_overlap",
         "negative_absolute_length_difference",
         "Q-SCI-15",
         "1999.137",
@@ -129,6 +134,7 @@ def test_ragged_demo_matches_the_note(tmp_path: Path) -> None:
     ):
         assert phrase in note
     assert PIN in script
+    assert PREVIOUS_PIN not in script
     assert "--edge-erosion" in script
     assert "0.15" in script
     assert "claimed-ppi" not in script
@@ -216,7 +222,7 @@ def test_ragged_demo_matches_the_note(tmp_path: Path) -> None:
     )
     assert pair in frozen_pairs
     assert list(pair) == expected["rank_1_fixture_fragment_ids"]
-    assert first["score"] == 0.0
+    assert first["score"] == expected["rank_1_score"]
 
     manifest = json.loads(
         (dest / "images" / "image_manifest.json").read_text(encoding="utf-8")
