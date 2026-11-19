@@ -9,6 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 NOTE = ROOT / "docs" / "ragged-synthetic-demo.md"
 SCRIPT = ROOT / "samples" / "ragged-leaf" / "run.sh"
 PIN = "1989e7766792018b7b878b277e38da6bf4dfd13e"
+# git rev-parse 1989e7766792018b7b878b277e38da6bf4dfd13e:src/prw
+# CI checks out with fetch-depth 1, so that commit object may be absent.
+SRC_PRW_TREE = "6cbcb72986a8b2fc03eb345c0d6a5136c004f122"
 
 
 def _measured_record() -> dict[str, object]:
@@ -42,15 +45,44 @@ def _record_line(stdout: str) -> dict[str, object]:
     return loaded
 
 
-def test_pinned_algorithms_match_the_measured_commit() -> None:
-    completed = subprocess.run(
-        ["git", "diff", "--exit-code", PIN, "--", "src/prw"],
+def _git(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
-    assert completed.returncode == 0, completed.stdout
+
+
+def _commit_available(sha: str) -> bool:
+    completed = _git("cat-file", "-e", f"{sha}^{{commit}}")
+    if completed.returncode == 0:
+        return True
+    message = completed.stderr
+    absent = "bad object" in message or "Not a valid object name" in message
+    if absent:
+        return False
+    raise AssertionError(message or completed.stdout)
+
+
+def test_missing_pin_object_is_absent() -> None:
+    assert _commit_available("deadbeef" * 5) is False
+
+
+def test_pinned_algorithms_match_the_measured_commit() -> None:
+    head = _git("rev-parse", "HEAD:src/prw")
+    assert head.returncode == 0, head.stderr
+    assert head.stdout.strip() == SRC_PRW_TREE
+    dirty = _git("diff", "--exit-code", "HEAD", "--", "src/prw")
+    assert dirty.returncode == 0, dirty.stdout
+    if not _commit_available(PIN):
+        return
+    pinned = _git("rev-parse", f"{PIN}:src/prw")
+    assert pinned.returncode == 0, pinned.stderr
+    assert pinned.stdout.strip() == SRC_PRW_TREE
+    diff = _git("diff", "--exit-code", PIN, "--", "src/prw")
+    assert diff.returncode == 0, diff.stdout or diff.stderr
 
 
 def test_script_refuses_a_checkout_path_and_a_used_directory(tmp_path: Path) -> None:
