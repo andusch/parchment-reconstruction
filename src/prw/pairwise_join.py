@@ -115,7 +115,8 @@ def _gap(chord_a: Chord, chord_b: Chord) -> float:
 
 
 def _rank_value(total: float) -> float:
-    if total == 0.0:
+    # A shared boundary leaves clip dust far below a millimetre.
+    if abs(total) <= 1e-9:
         return 0.0
     return -total
 
