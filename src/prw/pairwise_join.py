@@ -3,9 +3,13 @@
 Stage 5 in ``docs/ALGORITHM.md`` proposes ``JoinHypothesis`` rows with a
 rigid relative pose and a ``physical`` score. The implemented algorithm is
 ``pairwise_rigid_join`` version ``1``. The parameter blob records the score
-``negative_absolute_length_difference``. That score is the negative of the
-absolute chord-length difference. It is not a probability and does not mean
-the edges meet.
+``negative_chord_gap_plus_curve_and_overlap``. The chord term is the absolute
+length difference of the admitted chords. When both fragments carry an
+outline, the curve term is the best rigid match of their minimum-area
+rectangle sides, sampled at ``curve_samples`` equal steps, and the overlap
+term is the intersection thickness of those rectangles under the chord pose.
+The score is the negative of the sum. It is not a probability and does not
+mean the edges meet.
 
 ``detected`` fragments are skipped. Fewer than two admitted fragments
 (``catalogued`` or ``confirmed``) completes with an empty join list and no
@@ -47,9 +51,11 @@ from prw.scale import CalibrationObservation, CalibrationTransform
 
 ALGORITHM_NAME = "pairwise_rigid_join"
 ALGORITHM_VERSION = "1"
-SCORE_NAME = "negative_absolute_length_difference"
+SCORE_NAME = "negative_chord_gap_plus_curve_and_overlap"
+CURVE_SAMPLES = 8
 type Point = tuple[float, float]
 type Chord = tuple[Point, Point]
+type Rectangle = tuple[Point, Point, Point, Point]
 
 
 def _require_text(value: str, label: str) -> str:
@@ -104,11 +110,14 @@ def _midpoint(chord: Chord) -> Point:
     return ((start[0] + end[0]) / 2.0, (start[1] + end[1]) / 2.0)
 
 
-def _length_score(chord_a: Chord, chord_b: Chord) -> float:
-    difference = abs(_length(chord_a) - _length(chord_b))
-    if difference == 0.0:
+def _gap(chord_a: Chord, chord_b: Chord) -> float:
+    return abs(_length(chord_a) - _length(chord_b))
+
+
+def _rank_value(total: float) -> float:
+    if total == 0.0:
         return 0.0
-    return -difference
+    return -total
 
 
 def _pose(
@@ -151,7 +160,8 @@ def _require_pool(pool: object) -> tuple[FragmentChords, ...]:
 
 
 def _parameters(admitted: Sequence[FragmentChords]) -> dict[str, object]:
-    return {
+    parameters: dict[str, object] = {
+        "curve_samples": CURVE_SAMPLES,
         "score": SCORE_NAME,
         "fragment_ids": sorted(_fragment_sort_key(item) for item in admitted),
         "frame_ids": sorted(str(item.frame.id) for item in admitted),
@@ -159,6 +169,12 @@ def _parameters(admitted: Sequence[FragmentChords]) -> dict[str, object]:
             _edge_sort_key(edge) for item in admitted for edge in item.edges
         ),
     }
+    outline_ids = sorted(
+        str(content_id(item.outline)) for item in admitted if item.outline is not None
+    )
+    if outline_ids:
+        parameters["outline_ids"] = outline_ids
+    return parameters
 
 
 def _envelope(
@@ -220,8 +236,10 @@ class FragmentChords:
     """Edges of one fragment and the calibration that established their frame.
 
     ``observation`` and ``transform`` are omitted when calibration is missing.
-    A ``detected`` fragment is still recorded here so the pool can skip it.
-    See stage 5 in ``docs/ALGORITHM.md``.
+    ``outline`` is the fragment polygon in ``fragment_local_mm``. It is
+    omitted when the caller has no millimetre outline. A ``detected``
+    fragment is still recorded here so the pool can skip it. See stage 5
+    in ``docs/ALGORITHM.md``.
     """
 
     fragment: Fragment
@@ -230,6 +248,7 @@ class FragmentChords:
     envelope: ProvenanceEnvelope
     observation: CalibrationObservation | None = None
     transform: CalibrationTransform | None = None
+    outline: tuple[Point, ...] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.fragment, Fragment):
@@ -253,6 +272,8 @@ class FragmentChords:
             self.transform, CalibrationTransform
         ):
             raise TypeError("The calibration transform is a CalibrationTransform.")
+        if self.outline is not None:
+            _require_outline(self.outline)
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,8 +303,10 @@ class PairwiseJoins:
         parameters = json.loads(provenance.parameter_blob)
         if parameters.get("score") != SCORE_NAME:
             raise ValueError(
-                "The parameter blob names negative_absolute_length_difference."
+                "The parameter blob names negative_chord_gap_plus_curve_and_overlap."
             )
+        if parameters.get("curve_samples") != CURVE_SAMPLES:
+            raise ValueError("The parameter blob records curve_samples.")
         if self.run.join_ids != tuple(join.id for join in self.joins):
             raise ValueError("The completed run lists the join ids.")
         if len(self.transforms) != len(self.joins) or len(self.proposed) != len(
@@ -441,26 +464,277 @@ class PairwiseJoinLog:
         return result
 
 
+def _require_outline(outline: tuple[Point, ...]) -> None:
+    if len(outline) < 3:
+        raise ValueError("An outline polygon has at least three vertices.")
+    for point in outline:
+        if (
+            isinstance(point, str | bytes)
+            or not isinstance(point, tuple)
+            or len(point) != 2
+        ):
+            raise TypeError("An outline vertex is an x and a y.")
+        for coordinate in point:
+            if isinstance(coordinate, bool) or not isinstance(coordinate, int | float):
+                raise TypeError("An outline coordinate is a finite number.")
+            if not math.isfinite(float(coordinate)):
+                raise ValueError("An outline coordinate is a finite number.")
+
+
+def _signed_area(polygon: Sequence[Point]) -> float:
+    total = 0.0
+    count = len(polygon)
+    for index, point in enumerate(polygon):
+        nxt = polygon[(index + 1) % count]
+        total += point[0] * nxt[1] - nxt[0] * point[1]
+    return total / 2.0
+
+
+def _area(polygon: Sequence[Point]) -> float:
+    return abs(_signed_area(polygon))
+
+
+def _ccw(polygon: Sequence[Point]) -> tuple[Point, ...]:
+    points = tuple(polygon)
+    if _signed_area(points) < 0.0:
+        return tuple(reversed(points))
+    return points
+
+
+def _orient(a: Point, b: Point, c: Point) -> float:
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+
+def _hull(points: Sequence[Point]) -> tuple[Point, ...]:
+    ordered = sorted(set(points))
+    if len(ordered) <= 1:
+        return tuple(ordered)
+
+    def build(vertices: Sequence[Point]) -> list[Point]:
+        chain: list[Point] = []
+        for point in vertices:
+            while len(chain) >= 2 and _orient(chain[-2], chain[-1], point) <= 0.0:
+                chain.pop()
+            chain.append(point)
+        return chain
+
+    lower = build(ordered)
+    upper = build(tuple(reversed(ordered)))
+    return tuple(lower[:-1] + upper[:-1])
+
+
+def _placed(
+    origin: Point,
+    along_x: float,
+    along_y: float,
+    across_x: float,
+    across_y: float,
+    along_at: float,
+    across_at: float,
+) -> Point:
+    return (
+        origin[0] + along_at * along_x + across_at * across_x,
+        origin[1] + along_at * along_y + across_at * across_y,
+    )
+
+
+def _rectangle(outline: tuple[Point, ...] | None) -> Rectangle | None:
+    """Return the minimum-area rectangle of ``outline``, or none.
+
+    The rectangle is the rigid edge curve of the outline. Sides are sampled
+    by the curve term. A polygon with no area has no rectangle.
+    """
+    if outline is None:
+        return None
+    hull = _hull(outline)
+    if len(hull) < 3:
+        return None
+    best: tuple[float, float, Rectangle] | None = None
+    count = len(hull)
+    for index, start in enumerate(hull):
+        end = hull[(index + 1) % count]
+        dx_coord = end[0] - start[0]
+        dy_coord = end[1] - start[1]
+        length = math.hypot(dx_coord, dy_coord)
+        if length == 0.0:
+            continue
+        along_x = dx_coord / length
+        along_y = dy_coord / length
+        across_x = -along_y
+        across_y = along_x
+        along = [
+            (point[0] - start[0]) * along_x + (point[1] - start[1]) * along_y
+            for point in hull
+        ]
+        across = [
+            (point[0] - start[0]) * across_x + (point[1] - start[1]) * across_y
+            for point in hull
+        ]
+        min_along, max_along = min(along), max(along)
+        min_across, max_across = min(across), max(across)
+        area = (max_along - min_along) * (max_across - min_across)
+        angle = _angle((start, end))
+        fitted = (
+            _placed(start, along_x, along_y, across_x, across_y, min_along, min_across),
+            _placed(start, along_x, along_y, across_x, across_y, max_along, min_across),
+            _placed(start, along_x, along_y, across_x, across_y, max_along, max_across),
+            _placed(start, along_x, along_y, across_x, across_y, min_along, max_across),
+        )
+        if best is None or area < best[0] or (area == best[0] and angle < best[1]):
+            best = (area, angle, fitted)
+    if best is None or best[0] == 0.0:
+        return None
+    ordered = _ccw(best[2])
+    return (ordered[0], ordered[1], ordered[2], ordered[3])
+
+
+def _samples(chord: Chord) -> tuple[Point, ...]:
+    start, end = chord
+    last = CURVE_SAMPLES - 1
+    return tuple(
+        (
+            start[0] + (end[0] - start[0]) * index / last,
+            start[1] + (end[1] - start[1]) * index / last,
+        )
+        for index in range(CURVE_SAMPLES)
+    )
+
+
+def _mean_distance(left: Sequence[Point], right: Sequence[Point]) -> float:
+    return sum(
+        math.hypot(a[0] - b[0], a[1] - b[1]) for a, b in zip(left, right, strict=True)
+    ) / len(left)
+
+
+def _map_point(rotation: float, translation: Point, point: Point) -> Point:
+    cosine = math.cos(rotation)
+    sine = math.sin(rotation)
+    return (
+        cosine * point[0] - sine * point[1] + translation[0],
+        sine * point[0] + cosine * point[1] + translation[1],
+    )
+
+
+def _sides(rectangle: Rectangle) -> tuple[Chord, ...]:
+    return tuple((rectangle[index], rectangle[(index + 1) % 4]) for index in range(4))
+
+
+def _curve_penalty(left: Rectangle | None, right: Rectangle | None) -> float:
+    """Best side-to-side length gap plus mean sample distance.
+
+    Both directions of the right side are tried. The term is zero when
+    either rectangle is absent.
+    """
+    if left is None or right is None:
+        return 0.0
+    best: float | None = None
+    for side_a in _sides(left):
+        for side_b in _sides(right):
+            gap = _gap(side_a, side_b)
+            for chord_b in (side_b, (side_b[1], side_b[0])):
+                rotation = _wrap(_angle(chord_b) - _angle(side_a))
+                mid_a = _midpoint(side_a)
+                mid_b = _midpoint(chord_b)
+                cosine = math.cos(rotation)
+                sine = math.sin(rotation)
+                rotated_x = cosine * mid_a[0] - sine * mid_a[1]
+                rotated_y = sine * mid_a[0] + cosine * mid_a[1]
+                translation = (mid_b[0] - rotated_x, mid_b[1] - rotated_y)
+                moved = tuple(
+                    _map_point(rotation, translation, point)
+                    for point in _samples(side_a)
+                )
+                penalty = gap + _mean_distance(moved, _samples(chord_b))
+                if best is None or penalty < best:
+                    best = penalty
+    if best is None or best == 0.0:
+        return 0.0
+    return best
+
+
+def _line_hit(a: Point, b: Point, c: Point, d: Point) -> Point:
+    denominator = (a[0] - b[0]) * (c[1] - d[1]) - (a[1] - b[1]) * (c[0] - d[0])
+    if denominator == 0.0:
+        return a
+    scale = (
+        (a[0] - c[0]) * (c[1] - d[1]) - (a[1] - c[1]) * (c[0] - d[0])
+    ) / denominator
+    return (a[0] + scale * (b[0] - a[0]), a[1] + scale * (b[1] - a[1]))
+
+
+def _clip(subject: Sequence[Point], clip: Sequence[Point]) -> tuple[Point, ...]:
+    output = list(subject)
+    count = len(clip)
+    for index, start in enumerate(clip):
+        if not output:
+            return ()
+        end = clip[(index + 1) % count]
+        incoming = output
+        output = []
+        previous = incoming[-1]
+        for current in incoming:
+            current_inside = _orient(start, end, current) >= -1e-12
+            previous_inside = _orient(start, end, previous) >= -1e-12
+            if current_inside:
+                if not previous_inside:
+                    output.append(_line_hit(previous, current, start, end))
+                output.append(current)
+            elif previous_inside:
+                output.append(_line_hit(previous, current, start, end))
+            previous = current
+    return tuple(output)
+
+
+def _overlap_thickness(
+    left: Rectangle | None,
+    right: Rectangle | None,
+    rotation: float,
+    translation: Point,
+) -> float:
+    """Intersection area over the square root of the smaller rectangle.
+
+    The unit is millimetres. Boundary contact is zero area. The term is
+    zero when either rectangle is absent.
+    """
+    if left is None or right is None:
+        return 0.0
+    moved = _ccw(tuple(_map_point(rotation, translation, point) for point in left))
+    other = _ccw(right)
+    shared = _area(_clip(moved, other))
+    base = math.sqrt(min(_area(moved), _area(other)))
+    if base == 0.0 or shared == 0.0:
+        return 0.0
+    return shared / base
+
+
+def _physical_value(
+    chord_gap: float,
+    curve_penalty: float,
+    thickness: float,
+) -> float:
+    return _rank_value(chord_gap + curve_penalty + thickness)
+
+
 def _candidates(
     admitted: Sequence[FragmentChords],
     envelope: ProvenanceEnvelope,
 ) -> tuple[tuple[JoinHypothesis, ...], tuple[RigidTransform, ...]]:
     run_id = content_id(run_id_inputs(envelope, "completed", None))
+    rectangles = {item.fragment.id: _rectangle(item.outline) for item in admitted}
     joins: list[JoinHypothesis] = []
     transforms: list[RigidTransform] = []
     for index, left in enumerate(admitted):
         for right in admitted[index + 1 :]:
+            curve_penalty = _curve_penalty(
+                rectangles[left.fragment.id],
+                rectangles[right.fragment.id],
+            )
             for edge_a in sorted(left.edges, key=_edge_sort_key):
                 chord_a = _endpoints(edge_a)
                 for edge_b in sorted(right.edges, key=_edge_sort_key):
                     forward = _endpoints(edge_b)
                     pairings = (forward, (forward[1], forward[0]))
-                    score = Score(
-                        value=_length_score(chord_a, forward),
-                        run_id=run_id,
-                        channel="physical",
-                        hypothesis_type="join",
-                    )
+                    chord_gap = _gap(chord_a, forward)
                     for chord_b in pairings:
                         transform = _pose(
                             chord_a,
@@ -468,6 +742,18 @@ def _candidates(
                             left.frame,
                             right.frame,
                             envelope.id,
+                        )
+                        thickness = _overlap_thickness(
+                            rectangles[left.fragment.id],
+                            rectangles[right.fragment.id],
+                            transform.rotation_radians,
+                            (transform.translation_x, transform.translation_y),
+                        )
+                        score = Score(
+                            value=_physical_value(chord_gap, curve_penalty, thickness),
+                            run_id=run_id,
+                            channel="physical",
+                            hypothesis_type="join",
                         )
                         join = JoinHypothesis.create(
                             run_id=run_id,

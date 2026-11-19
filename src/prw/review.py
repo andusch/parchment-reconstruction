@@ -425,6 +425,7 @@ def load_ranked_joins(request: RankRequest) -> ReviewSession | ReviewFailure:
                 envelope=traced.run.provenance,
                 observation=scaled.observation,
                 transform=scaled.transform,
+                outline=scaled.outline.polygon,
             )
         )
     proposed = PairwiseJoinLog().propose(

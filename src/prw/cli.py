@@ -1138,6 +1138,7 @@ def _millimetre_pool(args: argparse.Namespace) -> _MillimetrePool | int:
                 envelope=traced.run.provenance,
                 observation=scaled.observation,
                 transform=scaled.transform,
+                outline=scaled.outline.polygon,
             )
         )
         outlines.append(_fragment_outline(fragment, scaled))
@@ -1423,6 +1424,7 @@ def _chords_for(
         envelope=traced.run.provenance,
         observation=scaled.observation,
         transform=scaled.transform,
+        outline=scaled.outline.polygon,
     )
 
 
