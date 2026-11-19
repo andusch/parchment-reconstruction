@@ -31,6 +31,21 @@ the image edge. The reclassification runs before the enclosed-background
 fill. Neither treatment implies the other. The parameter blob names each
 rule only when it is requested.
 
+The treatment ``frame_mode_support`` is a separate mount rule. The ceiling
+is the one-pixel frame's modal luminance plus 32. Ties in the mode keep
+the lower luminance. Samples at or below that ceiling that are 4-connected
+to the frame are mat. A dark sample the flood does not reach stays in
+the cutting, including when it is below ``foreground_threshold``. A
+foreground component is then
+reclassified as mat when its deepest chebyshev distance to background is
+at most 1, or when no pixel is farther from the frame than one tenth of
+the shorter side. Those two constants are recorded in the parameter blob.
+The component check and the hole check are unchanged. A second component
+that contains a 3 by 3 block and reaches past that tenth stays a failure.
+A dark opening that does not connect to the frame is part of the cutting
+under this rule. The omitted path and ``not_above_frame_split`` do not
+use these constants.
+
 The algorithm name ``fragment_outline`` and version ``1`` are provenance
 labels. They are not a public CLI contract. ``random_seed`` is omitted.
 Samples come from ``prw.fixture_tiff`` when the bytes are that writer's
@@ -70,6 +85,15 @@ ALGORITHM_NAME = "fragment_outline"
 ALGORITHM_VERSION = "1"
 FILL_WITHOUT_4_INTERIOR = "fill_without_4_interior"
 NOT_ABOVE_FRAME_SPLIT = "not_above_frame_split"
+FRAME_MODE_SUPPORT = "frame_mode_support"
+# Added to the frame's modal luminance. 28 and 36 also separated these
+# mounted cuttings; 40 crossed into the leaf on the second scan.
+_MAT_MODE_OFFSET = 32
+# A component whose chebyshev distance to background is at most this
+# value contains no 3 by 3 block.
+_SUPPORT_INRADIUS = 1
+# Residue that never reaches deeper than shorter_side / this divisor.
+_FRAME_INSET_DIVISOR = 10
 
 SegmentationFailureKind = Literal[
     "no_foreground",
@@ -123,9 +147,12 @@ def _require_treatment(value: object) -> str | None:
 def _require_mount(value: object) -> str | None:
     if value is None:
         return None
-    if value != NOT_ABOVE_FRAME_SPLIT:
-        raise ValueError("border_mount_treatment is not_above_frame_split, or omitted.")
-    return NOT_ABOVE_FRAME_SPLIT
+    if value not in {NOT_ABOVE_FRAME_SPLIT, FRAME_MODE_SUPPORT}:
+        raise ValueError(
+            "border_mount_treatment is not_above_frame_split or "
+            "frame_mode_support, or omitted."
+        )
+    return value
 
 
 def _mask(samples: bytes, threshold: int) -> bytearray:
@@ -143,9 +170,176 @@ def _prepared_mask(
     mask = _mask(samples, threshold)
     if mount == NOT_ABOVE_FRAME_SPLIT:
         _clear_border_mount(samples, mask, width, height)
+    elif mount == FRAME_MODE_SUPPORT:
+        _apply_frame_mode_support(samples, mask, width, height)
     if treatment == FILL_WITHOUT_4_INTERIOR:
         _fill_enclosed_without_4_interior(mask, width, height)
     return mask
+
+
+def _apply_frame_mode_support(
+    samples: bytes, mask: bytearray, width: int, height: int
+) -> None:
+    """Clear the border-connected mat and the residue it leaves behind.
+
+    The ceiling is the frame mode plus ``_MAT_MODE_OFFSET``. Dark pigment
+    that the flood does not reach stays foreground. A component that is
+    only a speckle, or that never leaves the outer tenth of the shorter
+    side, is mat. The outer boundary is not dilated.
+    """
+    mode = _frame_mode(samples, width, height)
+    ceiling = min(255, mode + _MAT_MODE_OFFSET)
+    reached = _reached_at_ceiling(samples, width, height, ceiling)
+    for index, value in enumerate(reached):
+        if value:
+            mask[index] = 0
+        elif samples[index] <= ceiling:
+            # The flood did not reach this dark sample, so it is cutting
+            # rather than mount, including when it is below the threshold.
+            mask[index] = 1
+    _drop_mat_residue(mask, width, height)
+
+
+def _frame_mode(samples: bytes, width: int, height: int) -> int:
+    """Return the most common one-pixel frame luminance.
+
+    Ties keep the lower luminance. A frame of one luminance returns that
+    value.
+    """
+    histogram, _count = _frame_histogram(samples, width, height)
+    return max(range(256), key=lambda value: (histogram[value], -value))
+
+
+def _reached_at_ceiling(
+    samples: bytes, width: int, height: int, ceiling: int
+) -> bytearray:
+    """Mark samples 4-connected to the frame at or below ``ceiling``."""
+    seen = bytearray(width * height)
+    stack: list[int] = []
+    for x_coord in range(width):
+        stack.append(x_coord)
+        if height > 1:
+            stack.append((height - 1) * width + x_coord)
+    if height > 2:
+        for y_coord in range(1, height - 1):
+            stack.append(y_coord * width)
+            if width > 1:
+                stack.append(y_coord * width + width - 1)
+    while stack:
+        current = stack.pop()
+        if seen[current] or samples[current] > ceiling:
+            continue
+        seen[current] = 1
+        x_coord = current % width
+        y_coord = current // width
+        for dx_coord, dy_coord in _NEIGHBORS_4:
+            next_x = x_coord + dx_coord
+            next_y = y_coord + dy_coord
+            if next_x < 0 or next_y < 0 or next_x >= width or next_y >= height:
+                continue
+            next_index = next_y * width + next_x
+            if samples[next_index] <= ceiling and not seen[next_index]:
+                stack.append(next_index)
+    return seen
+
+
+def _drop_mat_residue(mask: bytearray, width: int, height: int) -> None:
+    """Reclassify speckle and frame-hugging foreground as mat.
+
+    A kept component has some pixel whose chebyshev distance to background
+    is greater than ``_SUPPORT_INRADIUS`` and some pixel farther from the
+    frame than ``min(width, height) // _FRAME_INSET_DIVISOR``.
+    """
+    limit = min(width, height) // _FRAME_INSET_DIVISOR
+    distance = _chebyshev_to_background(mask, width, height)
+    seen = bytearray(width * height)
+    for index, value in enumerate(mask):
+        if value == 0 or seen[index]:
+            continue
+        component = _flood_foreground(mask, seen, width, height, index)
+        peak = 0
+        max_inset = 0
+        for item in component:
+            if distance[item] > peak:
+                peak = distance[item]
+            x_coord = item % width
+            y_coord = item // width
+            inset = min(x_coord, y_coord, width - 1 - x_coord, height - 1 - y_coord)
+            if inset > max_inset:
+                max_inset = inset
+        if peak > _SUPPORT_INRADIUS and max_inset > limit:
+            continue
+        for item in component:
+            mask[item] = 0
+
+
+def _flood_foreground(
+    mask: bytearray,
+    seen: bytearray,
+    width: int,
+    height: int,
+    start: int,
+) -> list[int]:
+    component = [start]
+    seen[start] = 1
+    stack = [start]
+    while stack:
+        current = stack.pop()
+        x_coord = current % width
+        y_coord = current // width
+        for dx_coord, dy_coord in _NEIGHBORS_4:
+            next_x = x_coord + dx_coord
+            next_y = y_coord + dy_coord
+            if next_x < 0 or next_y < 0 or next_x >= width or next_y >= height:
+                continue
+            next_index = next_y * width + next_x
+            if mask[next_index] and not seen[next_index]:
+                seen[next_index] = 1
+                component.append(next_index)
+                stack.append(next_index)
+    return component
+
+
+def _chebyshev_to_background(mask: bytearray, width: int, height: int) -> list[int]:
+    """Chebyshev distance to the nearest background sample.
+
+    A background sample has distance 0. A foreground sample with no
+    background in the raster keeps a distance larger than the inradius
+    test.
+    """
+    unreachable = width + height + 1
+    distance = [
+        0 if mask[index] == 0 else unreachable for index in range(width * height)
+    ]
+    for y_coord in range(height):
+        row = y_coord * width
+        for x_coord in range(width):
+            index = row + x_coord
+            value = distance[index]
+            if x_coord:
+                value = min(value, distance[index - 1] + 1)
+            if y_coord:
+                value = min(value, distance[index - width] + 1)
+                if x_coord:
+                    value = min(value, distance[index - width - 1] + 1)
+                if x_coord + 1 < width:
+                    value = min(value, distance[index - width + 1] + 1)
+            distance[index] = value
+    for y_coord in range(height - 1, -1, -1):
+        row = y_coord * width
+        for x_coord in range(width - 1, -1, -1):
+            index = row + x_coord
+            value = distance[index]
+            if x_coord + 1 < width:
+                value = min(value, distance[index + 1] + 1)
+            if y_coord + 1 < height:
+                value = min(value, distance[index + width] + 1)
+                if x_coord:
+                    value = min(value, distance[index + width - 1] + 1)
+                if x_coord + 1 < width:
+                    value = min(value, distance[index + width + 1] + 1)
+            distance[index] = value
+    return distance
 
 
 def _clear_border_mount(
@@ -481,6 +675,10 @@ def _parameters(
     parameters: dict[str, object] = {"foreground_threshold": threshold}
     if mount is not None:
         parameters["border_mount_treatment"] = mount
+    if mount == FRAME_MODE_SUPPORT:
+        parameters["frame_inset_divisor"] = _FRAME_INSET_DIVISOR
+        parameters["mat_mode_offset"] = _MAT_MODE_OFFSET
+        parameters["support_inradius"] = _SUPPORT_INRADIUS
     if treatment is not None:
         parameters["enclosed_background_treatment"] = treatment
     return parameters

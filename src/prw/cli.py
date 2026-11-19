@@ -108,6 +108,7 @@ from prw.scale import (
 )
 from prw.segment import (
     FILL_WITHOUT_4_INTERIOR,
+    FRAME_MODE_SUPPORT,
     NOT_ABOVE_FRAME_SPLIT,
     FailedSegmentation,
     SegmentationLog,
@@ -375,11 +376,13 @@ def _add_border_mount_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--border-mount-treatment",
         default=None,
-        choices=(NOT_ABOVE_FRAME_SPLIT,),
+        choices=(NOT_ABOVE_FRAME_SPLIT, FRAME_MODE_SUPPORT),
         help=(
-            "Reclassify the border-connected darker side of the frame's "
-            "Otsu split as background. Omit to leave the threshold mask "
-            "unchanged."
+            "Reclassify a mounted border as background. "
+            "not_above_frame_split uses the frame Otsu split. "
+            "frame_mode_support uses the frame mode plus its recorded "
+            "offset and drops shallow residue. Omit to leave the threshold "
+            "mask unchanged."
         ),
     )
 

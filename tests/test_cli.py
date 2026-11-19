@@ -484,6 +484,31 @@ def test_border_mount_treatment_is_named_and_rank_still_needs_a_scale(
     assert failure["claimed_resolution"]["calibration"] == "absent"
     assert "pixels_per_mm" not in ranked.stdout
 
+    supported = _run(
+        "segment",
+        str(mounted),
+        "--label",
+        "shelf-4",
+        "--foreground-threshold",
+        "1",
+        "--border-mount-treatment",
+        "frame_mode_support",
+        "--code-version",
+        "test-code",
+    )
+    assert supported.returncode == 0, supported.stderr
+    support_body = json.loads(supported.stdout)
+    assert support_body["record"] == "FragmentOutlineRevision"
+    assert support_body["polygon"] == [[2.0, 2.0], [5.0, 2.0], [5.0, 5.0], [2.0, 5.0]]
+    assert json.loads(support_body["envelope"]["parameter_blob"]) == {
+        "border_mount_treatment": "frame_mode_support",
+        "foreground_threshold": 1,
+        "frame_inset_divisor": 10,
+        "mat_mode_offset": 32,
+        "support_inradius": 1,
+    }
+    assert "random_seed" not in support_body["envelope"]
+
     rejected = _run(
         "segment",
         str(mounted),
