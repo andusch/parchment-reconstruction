@@ -13,6 +13,7 @@ from prw.outlines import Fragment, FragmentOutlineRevision
 from prw.pairwise_join import (
     ALGORITHM_NAME,
     ALGORITHM_VERSION,
+    POSE_NAME,
     SCORE_NAME,
     FailedPairwiseJoin,
     FragmentChords,
@@ -317,6 +318,7 @@ def test_one_edge_pair_yields_two_poses_and_one_length_score() -> None:
     assert result.run.provenance.algorithm_version == ALGORITHM_VERSION
     parsed = json.loads(content["parameter_blob"])
     assert parsed["score"] == SCORE_NAME
+    assert parsed["seat"] == POSE_NAME
     assert content["parameter_hash"] == hash_value(content["parameter_blob"].encode())
     assert content["parameter_hash"].startswith("sha256:")
     assert content["model_hash"] == ABSENT
@@ -487,5 +489,55 @@ def test_curve_and_overlap_rank_a_shared_side_above_a_chord_tie() -> None:
     assert all(score <= 0.0 for score in (*shared_scores, *other_scores))
     blob = json.loads(shared_run.run.provenance.parameter_blob)
     assert blob["score"] == SCORE_NAME
+    assert blob["seat"] == POSE_NAME
     assert blob["curve_samples"] == 8
     assert len(blob["outline_ids"]) == 2
+
+
+def test_an_overlapping_flat_is_replaced_by_the_opposed_exterior_seat() -> None:
+    project_id = uuid.uuid4()
+    first = _fragment(project_id, "left", "catalogued")
+    second = _fragment(project_id, "right", "confirmed")
+    # The chord is a short run through the middle, not a rectangle side.
+    # Both endpoint pairings leave the rectangles overlapping.
+    chord: Chord = ((14.0, 10.0), (16.0, 10.0))
+    other: Chord = ((26.0, 10.0), (28.0, 10.0))
+    outline = ((0.0, 0.0), (30.0, 0.0), (30.0, 20.0), (0.0, 20.0))
+    left = _chords(first, _edge_envelope(b"left-flat"), (chord,), calibrate=True)
+    right = _chords(second, _edge_envelope(b"right-flat"), (other,), calibrate=True)
+    left = FragmentChords(
+        fragment=left.fragment,
+        frame=left.frame,
+        edges=left.edges,
+        envelope=left.envelope,
+        observation=left.observation,
+        transform=left.transform,
+        outline=outline,
+    )
+    right = FragmentChords(
+        fragment=right.fragment,
+        frame=right.frame,
+        edges=right.edges,
+        envelope=right.envelope,
+        observation=right.observation,
+        transform=right.transform,
+        outline=outline,
+    )
+    result = _propose(PairwiseJoinLog(), (left, right))
+    assert isinstance(result, PairwiseJoins)
+    scores = [join.scores[0].value for join in result.joins]
+    assert scores[0] != scores[1]
+    assert max(scores) == 0.0
+    assert min(scores) < -1.0
+    winner = max(
+        zip(result.joins, result.transforms, strict=True),
+        key=lambda item: item[0].scores[0].value,
+    )
+    _join, transform = winner
+    # The flat alignment translates by the chord-midpoint gap, about (12, 0)
+    # or its reverse. The exterior seat translates by a full side.
+    assert abs(transform.translation_x) > 20.0
+    assert math.isclose(transform.translation_y, 0.0, abs_tol=1e-9)
+    assert math.isclose(transform.rotation_radians, 0.0, abs_tol=1e-9) or math.isclose(
+        abs(transform.rotation_radians), math.pi, abs_tol=1e-9
+    )
