@@ -7,18 +7,27 @@ rigid relative pose and a ``physical`` score. The implemented algorithm is
 length difference of the admitted chords. When both fragments carry an
 outline, the curve term is the best rigid match of their minimum-area
 rectangle sides, sampled at ``curve_samples`` equal steps, and the overlap
-term is the intersection thickness of those rectangles under the chord pose.
-The score is the negative of the sum. It is not a probability and does not
-mean the edges meet.
+term is the intersection thickness of those rectangles under the stored
+pose. The score is the negative of the sum. It is not a probability and does
+not mean the edges meet.
 
 ``detected`` fragments are skipped. Fewer than two admitted fragments
 (``catalogued`` or ``confirmed``) completes with an empty join list and no
 pose. Each unordered pair of edges from two different admitted fragments
 yields two ``proposed`` joins, one per endpoint pairing. Fragment A is the
-lesser id string. The pose rotates chord A so its stored direction matches
-the chosen direction of chord B, then translates midpoints, from A's
+lesser id string. A chord pose rotates chord A so its stored direction
+matches the chosen direction of chord B, then translates midpoints, from A's
 ``fragment_local_mm`` frame into B's. The first pairing uses B's stored
 direction and the second uses B reversed. There is no residual cutoff.
+
+When both outlines have a minimum-area rectangle and the chord pose with the
+smaller rectangle thickness still overlaps, that pairing's stored pose is
+replaced. The replacement seats the best-matched rectangle sides so the
+rectangles touch on the exterior without turning the fragment over, choosing
+the seat whose translation is most opposed to that overlapping chord
+alignment. The other pairing keeps its chord pose. A chord pose that already
+has no rectangle overlap is kept.
+The overlap term is the thickness under the pose that is stored.
 
 A missing calibration observation, or an edge frame other than
 ``fragment_local_mm``, fails the run under its own id and emits no pose.
@@ -52,7 +61,10 @@ from prw.scale import CalibrationObservation, CalibrationTransform
 ALGORITHM_NAME = "pairwise_rigid_join"
 ALGORITHM_VERSION = "1"
 SCORE_NAME = "negative_chord_gap_plus_curve_and_overlap"
+POSE_NAME = "exterior_side"
 CURVE_SAMPLES = 8
+# A shared boundary leaves no measurable rectangle area.
+_TOUCH_MM = 1e-6
 type Point = tuple[float, float]
 type Chord = tuple[Point, Point]
 type Rectangle = tuple[Point, Point, Point, Point]
@@ -121,13 +133,7 @@ def _rank_value(total: float) -> float:
     return -total
 
 
-def _pose(
-    chord_a: Chord,
-    chord_b: Chord,
-    frame_a: CoordinateFrame,
-    frame_b: CoordinateFrame,
-    provenance_id: uuid.UUID,
-) -> RigidTransform:
+def _motion(chord_a: Chord, chord_b: Chord) -> tuple[float, Point]:
     rotation = _wrap(_angle(chord_b) - _angle(chord_a))
     mid_a = _midpoint(chord_a)
     mid_b = _midpoint(chord_b)
@@ -135,14 +141,38 @@ def _pose(
     sine = math.sin(rotation)
     rotated_x = cosine * mid_a[0] - sine * mid_a[1]
     rotated_y = sine * mid_a[0] + cosine * mid_a[1]
+    return rotation, (
+        _canonical(mid_b[0] - rotated_x),
+        _canonical(mid_b[1] - rotated_y),
+    )
+
+
+def _transform(
+    frame_a: CoordinateFrame,
+    frame_b: CoordinateFrame,
+    rotation: float,
+    translation: Point,
+    provenance_id: uuid.UUID,
+) -> RigidTransform:
     return RigidTransform.create(
         from_frame=frame_a,
         to_frame=frame_b,
         rotation_radians=rotation,
-        translation_x=_canonical(mid_b[0] - rotated_x),
-        translation_y=_canonical(mid_b[1] - rotated_y),
+        translation_x=translation[0],
+        translation_y=translation[1],
         provenance_id=provenance_id,
     )
+
+
+def _pose(
+    chord_a: Chord,
+    chord_b: Chord,
+    frame_a: CoordinateFrame,
+    frame_b: CoordinateFrame,
+    provenance_id: uuid.UUID,
+) -> RigidTransform:
+    rotation, translation = _motion(chord_a, chord_b)
+    return _transform(frame_a, frame_b, rotation, translation, provenance_id)
 
 
 def _require_pool(pool: object) -> tuple[FragmentChords, ...]:
@@ -164,6 +194,7 @@ def _parameters(admitted: Sequence[FragmentChords]) -> dict[str, object]:
     parameters: dict[str, object] = {
         "curve_samples": CURVE_SAMPLES,
         "score": SCORE_NAME,
+        "seat": POSE_NAME,
         "fragment_ids": sorted(_fragment_sort_key(item) for item in admitted),
         "frame_ids": sorted(str(item.frame.id) for item in admitted),
         "edge_ids": sorted(
@@ -308,6 +339,8 @@ class PairwiseJoins:
             )
         if parameters.get("curve_samples") != CURVE_SAMPLES:
             raise ValueError("The parameter blob records curve_samples.")
+        if parameters.get("seat") != POSE_NAME:
+            raise ValueError("The parameter blob names exterior_side.")
         if self.run.join_ids != tuple(join.id for join in self.joins):
             raise ValueError("The completed run lists the join ids.")
         if len(self.transforms) != len(self.joins) or len(self.proposed) != len(
@@ -716,6 +749,75 @@ def _physical_value(
     return _rank_value(chord_gap + curve_penalty + thickness)
 
 
+def _unit(translation: Point) -> Point:
+    length = math.hypot(translation[0], translation[1])
+    if length == 0.0:
+        return (0.0, 0.0)
+    return (translation[0] / length, translation[1] / length)
+
+
+def _exterior_seats(
+    left: Rectangle, right: Rectangle
+) -> tuple[tuple[float, Point], ...]:
+    """Exterior seats of the best-matched rectangle sides.
+
+    A seat aligns one side of ``left`` with one directed side of ``right``.
+    The penalty is that side pair's length gap plus the mean sample distance.
+    Only seats of the minimum penalty whose rectangles do not overlap are
+    returned.
+    """
+    found: list[tuple[float, float, float, Point]] = []
+    best: float | None = None
+    for side_a in _sides(left):
+        for side_b in _sides(right):
+            gap = _gap(side_a, side_b)
+            for directed in (side_b, (side_b[1], side_b[0])):
+                rotation, translation = _motion(side_a, directed)
+                moved = tuple(
+                    _map_point(rotation, translation, point)
+                    for point in _samples(side_a)
+                )
+                penalty = gap + _mean_distance(moved, _samples(directed))
+                thickness = _overlap_thickness(left, right, rotation, translation)
+                if best is None or penalty < best:
+                    best = penalty
+                found.append((penalty, thickness, rotation, translation))
+    if best is None:
+        return ()
+    return tuple(
+        (rotation, translation)
+        for penalty, thickness, rotation, translation in found
+        if penalty <= best + 1e-9 and thickness <= _TOUCH_MM
+    )
+
+
+def _opposed_seat(
+    seats: tuple[tuple[float, Point], ...],
+    chord_translation: Point,
+) -> tuple[float, Point] | None:
+    """Return an exterior seat opposed to ``chord_translation``.
+
+    Seats that turn the fragment over are dropped when an unturned seat
+    exists. The chord alignment of a long flat points through the fragment.
+    The opposite unturned seat puts the contact on the other side of that
+    alignment. Equal opposite sides of a rectangle remain a tie the flat
+    cannot break.
+    """
+    if not seats:
+        return None
+    nearest = min(abs(rotation) for rotation, _translation in seats)
+    unturned = tuple(seat for seat in seats if abs(abs(seat[0]) - nearest) <= 1e-3)
+    reference = _unit(chord_translation)
+
+    def sort_key(seat: tuple[float, Point]) -> tuple[float, float, float]:
+        _rotation, translation = seat
+        direction = _unit(translation)
+        dot = direction[0] * reference[0] + direction[1] * reference[1]
+        return (dot, translation[0], translation[1])
+
+    return min(unturned, key=sort_key)
+
+
 def _candidates(
     admitted: Sequence[FragmentChords],
     envelope: ProvenanceEnvelope,
@@ -736,19 +838,38 @@ def _candidates(
                     forward = _endpoints(edge_b)
                     pairings = (forward, (forward[1], forward[0]))
                     chord_gap = _gap(chord_a, forward)
-                    for chord_b in pairings:
-                        transform = _pose(
-                            chord_a,
-                            chord_b,
+                    motions = tuple(_motion(chord_a, chord_b) for chord_b in pairings)
+                    rect_a = rectangles[left.fragment.id]
+                    rect_b = rectangles[right.fragment.id]
+                    thicknesses = tuple(
+                        _overlap_thickness(rect_a, rect_b, rotation, translation)
+                        for rotation, translation in motions
+                    )
+                    seated = min(
+                        range(len(pairings)),
+                        key=lambda item: (thicknesses[item], item),
+                    )
+                    seats = (
+                        _exterior_seats(rect_a, rect_b)
+                        if rect_a is not None and rect_b is not None
+                        else ()
+                    )
+                    for pairing_index, _chord_b in enumerate(pairings):
+                        rotation, translation = motions[pairing_index]
+                        thickness = thicknesses[pairing_index]
+                        if pairing_index == seated and thickness > _TOUCH_MM and seats:
+                            opposed = _opposed_seat(seats, translation)
+                            if opposed is not None:
+                                rotation, translation = opposed
+                                thickness = _overlap_thickness(
+                                    rect_a, rect_b, rotation, translation
+                                )
+                        transform = _transform(
                             left.frame,
                             right.frame,
+                            rotation,
+                            translation,
                             envelope.id,
-                        )
-                        thickness = _overlap_thickness(
-                            rectangles[left.fragment.id],
-                            rectangles[right.fragment.id],
-                            transform.rotation_radians,
-                            (transform.translation_x, transform.translation_y),
                         )
                         score = Score(
                             value=_physical_value(chord_gap, curve_penalty, thickness),

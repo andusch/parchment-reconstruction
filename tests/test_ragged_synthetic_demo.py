@@ -8,11 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NOTE = ROOT / "docs" / "ragged-synthetic-demo.md"
 SCRIPT = ROOT / "samples" / "ragged-leaf" / "run.sh"
-PIN = "8a6c2e569ed8107cd47848e29005e528ec397a8e"
-PREVIOUS_PIN = "1989e7766792018b7b878b277e38da6bf4dfd13e"
-# git rev-parse 8a6c2e569ed8107cd47848e29005e528ec397a8e:src/prw
+PIN = "2fe603838c5e160c3a1e3d6a65a3d487d8f1b28b"
+PREVIOUS_PIN = "8a6c2e569ed8107cd47848e29005e528ec397a8e"
+# git rev-parse 2fe603838c5e160c3a1e3d6a65a3d487d8f1b28b:src/prw
 # CI checks out with fetch-depth 1, so that commit object may be absent.
-SRC_PRW_TREE = "f18269ba46ce7c03c9d79cc6cb15da92b7702b3f"
+SRC_PRW_TREE = "bd4a0645c85e71186cd6c2bdad51fccf870baf34"
 
 
 def _measured_record() -> dict[str, object]:
@@ -112,7 +112,7 @@ def test_ragged_demo_matches_the_note(tmp_path: Path) -> None:
     assert expected["rank_channel"] == "physical"
     assert expected["rank_epistemic_class"] == "hypothesis"
     assert expected["rank_1_is_frozen_join"] is True
-    assert expected["placement_scored_pairs_are_frozen_joins"] is False
+    assert expected["placement_scored_pairs_are_frozen_joins"] is True
     assert "## Previous measured record" in note
     assert "recall_at_3" in note
     for phrase in (
