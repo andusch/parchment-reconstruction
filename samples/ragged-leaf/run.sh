@@ -49,7 +49,7 @@ mkdir -p "$dest"
 # those ids, so the published rank-1 row and placement RMSE list are for
 # this commit of the algorithms. Override PRW_CODE_VERSION only when
 # remeasuring after an algorithm change.
-pinned=1989e7766792018b7b878b277e38da6bf4dfd13e
+pinned=8a6c2e569ed8107cd47848e29005e528ec397a8e
 checkout=$(git rev-parse HEAD)
 code=${PRW_CODE_VERSION:-$pinned}
 echo "checkout $checkout"

@@ -1,7 +1,7 @@
 # Ragged synthetic demo
 
 - Status: Working note. One synthetic leaf with non-zero edge erosion, rotation, and lighting variation. The measured record is join recall at K=1 and K=3, and placement error at N=2.
-- Algorithms: `synthetic_tear` version `1`, `edge_chord` version `1`, `pairwise_rigid_join` version `1`, and `rigid_assembly_search` version `1`, as of commit `1989e7766792018b7b878b277e38da6bf4dfd13e` (merge of PR #31).
+- Algorithms: `synthetic_tear` version `1`, `edge_chord` version `1`, `pairwise_rigid_join` version `1`, and `rigid_assembly_search` version `1`. The length-difference record is commit `1989e7766792018b7b878b277e38da6bf4dfd13e` (merge of PR #31). The curve-and-overlap record is commit `8a6c2e569ed8107cd47848e29005e528ec397a8e`. `git rev-parse 8a6c2e569ed8107cd47848e29005e528ec397a8e:src/prw` is `f18269ba46ce7c03c9d79cc6cb15da92b7702b3f`.
 - Glossary: [DATA_MODEL.md](DATA_MODEL.md#glossary)
 - Evaluation: [EVALUATION.md](EVALUATION.md)
 
@@ -21,9 +21,9 @@ That writes `${TMPDIR:-/tmp}/prw-ragged-leaf/`. Pass another empty directory out
 
 The script's exit code is `0` when every `prw` command below exits `0` and `labels.json` is byte-identical after scoring. A label-byte change exits `1`.
 
-Stdout names the checkout SHA and the code version passed to `prw`. The default code version is `1989e7766792018b7b878b277e38da6bf4dfd13e`. Set `PRW_CODE_VERSION` to pass a different string. The measured record below is for the default string.
+Stdout names the checkout SHA and the code version passed to `prw`. The default code version is `8a6c2e569ed8107cd47848e29005e528ec397a8e`. Set `PRW_CODE_VERSION` to pass a different string. The measured record below is for the default string. The previous record used `1989e7766792018b7b878b277e38da6bf4dfd13e`.
 
-Hypothesis ids include that string. Equal physical scores are ordered by those ids. Passing another string can change which tied join is rank 1 and can change the placement RMSE list. Remeasure and replace the record when `src/prw` differs from that commit.
+Hypothesis ids include that string. Equal physical scores are ordered by those ids. On this leaf the twelve physical scores are distinct, so the rank order does not change when another string is passed. The parameter hashes do. Remeasure when `src/prw` differs from `f18269ba46ce7c03c9d79cc6cb15da92b7702b3f`.
 
 ## Parameters, frozen before scoring
 
@@ -58,7 +58,7 @@ Missing-fragment percentage `0` keeps all four pieces. The label file has four `
 
 ```bash
 export CODE DEST
-CODE=1989e7766792018b7b878b277e38da6bf4dfd13e
+CODE=8a6c2e569ed8107cd47848e29005e528ec397a8e
 DEST="${TMPDIR:-/tmp}/prw-ragged-leaf-hand"
 mkdir -p "$DEST"
 
@@ -195,9 +195,9 @@ Exit `0` for each command. `rank` prints `record` `physical_join_order`. `recall
 
 The first recall report has `previous_report` `absent`. This fixture had no earlier join-recall file. The second report's `previous_report` is `join-recall-0001.json`. The placement report's `previous_report` is `absent`. There is no earlier placement-error file on this fixture.
 
-## Measured record
+## Previous measured record
 
-The script prints this object on the `record` line when `code_version` is the default. Image files stay in `$DEST/images/` and are not committed.
+This object is what the script printed when `code_version` was `1989e7766792018b7b878b277e38da6bf4dfd13e` and the physical score was `negative_absolute_length_difference`. It is kept so the failure stays visible. The script no longer prints it. Image files stay outside Git.
 
 ```json
 {
@@ -397,7 +397,9 @@ The script prints this object on the `record` line when `code_version` is the de
 }
 ```
 
-## Reading the record
+## Reading the previous record
+
+These paragraphs describe the length-difference record above. They are not the script's current output.
 
 Join recall at 1 is `0.25`. Join recall at 3 is `0.5`. `recall_at_1_is_1` is false. Recall at 1 is the fraction of the four frozen joins that appear in the top 1 of the `physical` channel. One frozen join is present, so the fraction is `0.25`. Recall at 3 is two of the four, so the fraction is `0.5`.
 
@@ -416,3 +418,227 @@ Both kept assemblies are hypotheses on the `physical` channel with score `-1.0`.
 Lighting variation `0.25` is in the generator parameter blob and in the image hashes. Foreground threshold `1` keeps every painted sample of this leaf, so the outline census is the painted support. The physical score reads chord length.
 
 Rotation `0.3` radians is what breaks each side into the short runs counted above. The 6 mm minimum keeps one chord per fragment. The physical channel scores those four chords.
+
+## Measured record
+
+The script prints this object on the `record` line when `code_version` is `8a6c2e569ed8107cd47848e29005e528ec397a8e`. Image files stay in `$DEST/images/` and are not committed.
+
+```json
+{
+  "assembly_rank": [
+    {
+      "channel": "physical",
+      "epistemic_class": "hypothesis",
+      "fixture_fragment_ids": [
+        "486d4093-d4a4-5cb2-88e2-8e0987316ed5",
+        "a739e88b-81cd-5678-a266-4b8fb4fe6b9c"
+      ],
+      "score": -2.534184847034281
+    },
+    {
+      "channel": "physical",
+      "epistemic_class": "hypothesis",
+      "fixture_fragment_ids": [
+        "486d4093-d4a4-5cb2-88e2-8e0987316ed5",
+        "96ec4566-67eb-5ba6-be11-29b71e58fd06"
+      ],
+      "score": -3.287256112754977
+    }
+  ],
+  "chord_count_at_minimum_0": {
+    "486d4093-d4a4-5cb2-88e2-8e0987316ed5": 112,
+    "96ec4566-67eb-5ba6-be11-29b71e58fd06": 106,
+    "a739e88b-81cd-5678-a266-4b8fb4fe6b9c": 107,
+    "f42a0d5c-25a4-5358-8d70-d1619f920839": 112
+  },
+  "decoder_name": "synthetic_uncompressed_tiff",
+  "decoder_version": "1",
+  "generator_algorithm_name": "synthetic_tear",
+  "generator_algorithm_version": "1",
+  "generator_parameter_blob": "{\"edge_erosion\":0.15,\"lighting_variation\":0.25,\"missing_fragment_percentage\":0.0,\"rotation\":0.3}",
+  "generator_parameter_hash": "sha256:fb1cae07ef9d8c8558acd9bec77a8c3ede97637785567ff6c48fdfaa567c86cb",
+  "images": [
+    {
+      "byte_length": 14122,
+      "content_hash": "sha256:734beb89077706044883ae7e1d1d9954caf4e49b3fc926946bd7366d8764f267",
+      "height": 140,
+      "name": "page.tif",
+      "role": "page",
+      "width": 100
+    },
+    {
+      "byte_length": 3710,
+      "content_hash": "sha256:2b90816cb6d6286d67deb05effea388328e0af6404cd49696537a70052937a17",
+      "height": 69,
+      "name": "fragment-96ec4566-67eb-5ba6-be11-29b71e58fd06.tif",
+      "role": "fragment",
+      "width": 52
+    },
+    {
+      "byte_length": 4042,
+      "content_hash": "sha256:033220bd0a9831b373c5f39082e760a6ac6f044bee7e2fc82430bd57072bde4d",
+      "height": 70,
+      "name": "fragment-f42a0d5c-25a4-5358-8d70-d1619f920839.tif",
+      "role": "fragment",
+      "width": 56
+    },
+    {
+      "byte_length": 3658,
+      "content_hash": "sha256:40958b854251051de241547ac134c44c261dbfc88bab20233d55f5e9ddc0fb1c",
+      "height": 68,
+      "name": "fragment-a739e88b-81cd-5678-a266-4b8fb4fe6b9c.tif",
+      "role": "fragment",
+      "width": 52
+    },
+    {
+      "byte_length": 3986,
+      "content_hash": "sha256:e8456c78fc6fefa9da11f83d068a359df34cf75908b5dc266718806f9545a96c",
+      "height": 69,
+      "name": "fragment-486d4093-d4a4-5cb2-88e2-8e0987316ed5.tif",
+      "role": "fragment",
+      "width": 56
+    }
+  ],
+  "join_count": 12,
+  "label_file_hash": "sha256:a837cb997ea892862275e853fa21c2e0172b34495f56e65ee8a17a6f381d48ac",
+  "labels_unchanged": true,
+  "model_hash": "absent",
+  "placement_algorithm_name": "rigid_assembly_search",
+  "placement_algorithm_version": "1",
+  "placement_n": 2,
+  "placement_page_origin": "minimum_corner",
+  "placement_parameter_hash": "sha256:06049beaadcbdd38fbdc3b484698ee52cc1a8fd163897986760af0d9b64090a2",
+  "placement_previous_report": "absent",
+  "placement_rmse_mm": [
+    60.391038285989595,
+    90.98557180260953,
+    55.22061929928718,
+    60.39103828598959
+  ],
+  "placement_scored_assemblies": [
+    {
+      "fixture_fragment_ids": [
+        "486d4093-d4a4-5cb2-88e2-8e0987316ed5",
+        "a739e88b-81cd-5678-a266-4b8fb4fe6b9c"
+      ],
+      "frozen_join": true,
+      "rmse_mm": [
+        60.391038285989595,
+        90.98557180260953
+      ]
+    },
+    {
+      "fixture_fragment_ids": [
+        "486d4093-d4a4-5cb2-88e2-8e0987316ed5",
+        "96ec4566-67eb-5ba6-be11-29b71e58fd06"
+      ],
+      "frozen_join": false,
+      "rmse_mm": [
+        55.22061929928718,
+        60.39103828598959
+      ]
+    }
+  ],
+  "placement_scored_pairs_are_frozen_joins": false,
+  "placement_unplaced_count": 4,
+  "random_seed": 3,
+  "rank_1_fixture_fragment_ids": [
+    "486d4093-d4a4-5cb2-88e2-8e0987316ed5",
+    "f42a0d5c-25a4-5358-8d70-d1619f920839"
+  ],
+  "rank_1_is_frozen_join": true,
+  "rank_1_score": -1.3307021639425243,
+  "rank_algorithm_name": "pairwise_rigid_join",
+  "rank_algorithm_version": "1",
+  "rank_channel": "physical",
+  "rank_epistemic_class": "hypothesis",
+  "rank_parameter_hash": "sha256:d20da1a0d6117865f23b5c078044687fe0eab8b70f2b3346c2105edc632d50d1",
+  "rank_scores": [
+    -1.3307021639425243,
+    -1.622827447048656,
+    -2.5272957282049,
+    -2.534184847034281,
+    -3.287256112754977,
+    -3.351844452597036,
+    -49.02354646604126,
+    -49.41495779301704,
+    -49.56887903679135,
+    -50.11408151802765,
+    -50.448573959965486,
+    -51.1712077120198
+  ],
+  "recall_algorithm_name": "pairwise_rigid_join",
+  "recall_algorithm_version": "1",
+  "recall_at_1": 0.25,
+  "recall_at_1_is_1": false,
+  "recall_at_1_previous_report": "absent",
+  "recall_at_1_status": [
+    {
+      "id": "6f5b0df5-3e56-5028-b283-e22aa0009db3",
+      "status": "absent"
+    },
+    {
+      "id": "719df390-2c7b-5e85-a27b-6419e6187ba7",
+      "status": "present"
+    },
+    {
+      "id": "8f61ea40-e4e9-509e-a6ed-48fdd2d0064e",
+      "status": "absent"
+    },
+    {
+      "id": "c4a29850-b170-575b-80f1-57049eb67782",
+      "status": "absent"
+    }
+  ],
+  "recall_at_3": 0.75,
+  "recall_at_3_previous_report": "join-recall-0001.json",
+  "recall_at_3_status": [
+    {
+      "id": "6f5b0df5-3e56-5028-b283-e22aa0009db3",
+      "status": "present"
+    },
+    {
+      "id": "719df390-2c7b-5e85-a27b-6419e6187ba7",
+      "status": "present"
+    },
+    {
+      "id": "8f61ea40-e4e9-509e-a6ed-48fdd2d0064e",
+      "status": "present"
+    },
+    {
+      "id": "c4a29850-b170-575b-80f1-57049eb67782",
+      "status": "absent"
+    }
+  ],
+  "recall_parameter_hash": "sha256:d20da1a0d6117865f23b5c078044687fe0eab8b70f2b3346c2105edc632d50d1",
+  "score_name": "negative_chord_gap_plus_curve_and_overlap",
+  "surviving_chord_mm": {
+    "486d4093-d4a4-5cb2-88e2-8e0987316ed5": 15.0,
+    "96ec4566-67eb-5ba6-be11-29b71e58fd06": 16.0,
+    "a739e88b-81cd-5678-a266-4b8fb4fe6b9c": 16.0,
+    "f42a0d5c-25a4-5358-8d70-d1619f920839": 15.0
+  }
+}
+```
+
+## Reading the record
+
+Join recall at 1 is `0.25`. Join recall at 3 is `0.75`. `recall_at_1_is_1` is false. Recall at 1 is the fraction of the four frozen joins that appear in the top 1 of the `physical` channel. One frozen join is present, so the fraction is `0.25`. Recall at 3 is three of the four, so the fraction is `0.75`.
+
+The present row at K=1 is `719df390-2c7b-5e85-a27b-6419e6187ba7`. Its fixture fragments are `486d4093-d4a4-5cb2-88e2-8e0987316ed5` and `f42a0d5c-25a4-5358-8d70-d1619f920839`. Rank 1 is that pair. `rank_1_score` is `-1.3307021639425243`. `rank_channel` is `physical`. `rank_epistemic_class` is `hypothesis`. `score_name` is `negative_chord_gap_plus_curve_and_overlap`. The twelve scores are distinct. The first six are the separated chord orientations. The last six are the reversed orientations, near `-50`.
+
+`8f61ea40-e4e9-509e-a6ed-48fdd2d0064e` and `6f5b0df5-3e56-5028-b283-e22aa0009db3` are present at K=3 and absent at K=1. `c4a29850-b170-575b-80f1-57049eb67782` is absent at both. That fourth frozen join is rank 4. Its score is `-2.534184847034281`, which is below rank 3 at `-2.5272957282049`. K=3 stops before it.
+
+The channel that this recall measures is `physical`. The score in the join envelope is `negative_chord_gap_plus_curve_and_overlap`. `curve_samples` is `8`. This run leaves `htr` uncomputed and leaves `language` uncomputed.
+
+The chord term is still the absolute length difference of the one chord at or above 6 mm. On this leaf those chords are 15 mm or 16 mm. They are the long axis-aligned runs of the rotated raster, one per fragment, not the two sides of a cut. Erosion scales every side of a fragment by `0.85` about that fragment's centroid, so the two sides of one cut stay the same length in the generator polygon. The 1 mm census gap is the pixel run, not that homothety.
+
+The curve term fits a minimum-area rectangle to each outline and samples each side at 8 equal steps. True neighbors share one recovered side. The closest sides of a diagonal pair differ by about 0.6 mm. The overlap term is the intersection area of those rectangles under the chord pose, divided by the square root of the smaller area. The reversed chord orientation overlaps by about 50 mm of thickness. The separated orientation overlaps by about 1.3 mm to 1.6 mm. That orders the four frozen pairs ahead of the two pairs with no frozen join row.
+
+Recall at 1 stays `0.25` because the prefix of length 1 holds one fragment pair and this leaf has four frozen joins. Recall at 1 is not `1.0` on this metric. K and the label file were not changed to make it so.
+
+Placement error at N=2 lists four scored RMSE values, in report order: `60.391038285989595`, `90.98557180260953`, `55.22061929928718`, and `60.39103828598959` page millimetres. Four rows are `unplaced` and carry no RMSE. `placement_page_origin` is `minimum_corner`. The report states that the error includes the difference between that page-origin rule and the generator's absolute rotation. `does_not_measure` on the report is warped or shrunken real parchment. [Q-SCI-03](ALGORITHM.md#q-sci-03), [Q-SCI-15](EVALUATION.md#q-sci-15), and [Q-SCI-20](ALGORITHM.md#q-sci-20) stay open.
+
+The kept assemblies are hypotheses on the `physical` channel. The first places `486d4093-d4a4-5cb2-88e2-8e0987316ed5` and `a739e88b-81cd-5678-a266-4b8fb4fe6b9c`, frozen join `c4a29850-b170-575b-80f1-57049eb67782`, with score `-2.534184847034281`. The second places `486d4093-d4a4-5cb2-88e2-8e0987316ed5` and `96ec4566-67eb-5ba6-be11-29b71e58fd06`, which has no frozen join row, with score `-3.287256112754977`. `placement_scored_pairs_are_frozen_joins` is false. Rank 1 is not either assembly. The join pose still aligns the 15 mm and 16 mm chords. Assembly search drops a pose whose raster outlines have positive overlap. The rectangle thickness used in the rank is not that raster test, so the highest join scores are not the assemblies that survive.
+
+Lighting variation `0.25` is in the generator parameter blob and in the image hashes. Foreground threshold `1` keeps every painted sample of this leaf. Rotation `0.3` radians breaks each straight side into short pixel runs. The 6 mm minimum still keeps one chord per fragment. The curve term reads the outline those runs came from.

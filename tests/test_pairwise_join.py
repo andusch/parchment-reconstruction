@@ -434,3 +434,58 @@ def test_module_does_not_reference_labels_json() -> None:
 
     source = Path(inspect.getfile(pairwise_join)).read_text(encoding="utf-8")
     assert "labels.json" not in source
+
+
+def test_curve_and_overlap_rank_a_shared_side_above_a_chord_tie() -> None:
+    project_id = uuid.uuid4()
+    shared = _fragment(project_id, "shared", "catalogued")
+    mate = _fragment(project_id, "mate", "confirmed")
+    other = _fragment(project_id, "other", "catalogued")
+    chord: Chord = ((0.0, 0.0), (2.0, 0.0))
+    wide = ((0.0, 0.0), (10.0, 0.0), (10.0, 4.0), (0.0, 4.0))
+    same_width = ((0.0, 0.0), (10.0, 0.0), (10.0, 6.0), (0.0, 6.0))
+    different = ((0.0, 0.0), (7.0, 0.0), (7.0, 3.0), (0.0, 3.0))
+    left = _chords(shared, _edge_envelope(b"shared"), (chord,), calibrate=True)
+    matched = _chords(mate, _edge_envelope(b"mate"), (chord,), calibrate=True)
+    unmatched = _chords(other, _edge_envelope(b"other"), (chord,), calibrate=True)
+    left = FragmentChords(
+        fragment=left.fragment,
+        frame=left.frame,
+        edges=left.edges,
+        envelope=left.envelope,
+        observation=left.observation,
+        transform=left.transform,
+        outline=wide,
+    )
+    matched = FragmentChords(
+        fragment=matched.fragment,
+        frame=matched.frame,
+        edges=matched.edges,
+        envelope=matched.envelope,
+        observation=matched.observation,
+        transform=matched.transform,
+        outline=same_width,
+    )
+    unmatched = FragmentChords(
+        fragment=unmatched.fragment,
+        frame=unmatched.frame,
+        edges=unmatched.edges,
+        envelope=unmatched.envelope,
+        observation=unmatched.observation,
+        transform=unmatched.transform,
+        outline=different,
+    )
+    shared_run = _propose(PairwiseJoinLog(), (left, matched))
+    other_run = _propose(PairwiseJoinLog(), (left, unmatched))
+    assert isinstance(shared_run, PairwiseJoins)
+    assert isinstance(other_run, PairwiseJoins)
+    shared_scores = [join.scores[0].value for join in shared_run.joins]
+    other_scores = [join.scores[0].value for join in other_run.joins]
+    assert shared_scores[0] != shared_scores[1]
+    assert max(shared_scores) > max(other_scores)
+    assert max(shared_scores) == 0.0
+    assert all(score <= 0.0 for score in (*shared_scores, *other_scores))
+    blob = json.loads(shared_run.run.provenance.parameter_blob)
+    assert blob["score"] == SCORE_NAME
+    assert blob["curve_samples"] == 8
+    assert len(blob["outline_ids"]) == 2
