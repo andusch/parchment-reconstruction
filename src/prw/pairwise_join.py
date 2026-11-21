@@ -23,10 +23,15 @@ direction and the second uses B reversed. There is no residual cutoff.
 When both outlines have a minimum-area rectangle and the chord pose with the
 smaller rectangle thickness still overlaps, that pairing's stored pose is
 replaced. The replacement seats the best-matched rectangle sides so the
-rectangles touch on the exterior without turning the fragment over, choosing
-the seat whose translation is most opposed to that overlapping chord
-alignment. The other pairing keeps its chord pose. A chord pose that already
-has no rectangle overlap is kept.
+rectangles touch on the exterior without turning the fragment over. The seat
+is the one most opposed to that overlapping chord alignment, unless both
+flats lie off center toward the same end of their rectangles. A clockwise
+outline stores a left-edge flat pointing up and a right-edge flat pointing
+down, so the uncorrected direction seats the shared cut on the left edge and
+the outer borders on the right edge. When the flats agree, the reference is
+reversed if that shared offset points up, and the outer borders are not the
+seat. The other pairing keeps its chord pose. A chord pose that already has
+no rectangle overlap is kept.
 The overlap term is the thickness under the pose that is stored.
 
 A missing calibration observation, or an edge frame other than
@@ -791,23 +796,57 @@ def _exterior_seats(
     )
 
 
+def _rectangle_center(rectangle: Rectangle) -> Point:
+    return (
+        sum(point[0] for point in rectangle) / 4.0,
+        sum(point[1] for point in rectangle) / 4.0,
+    )
+
+
+def _flat_offset_y(chord: Chord, rectangle: Rectangle) -> float:
+    """Return the flat's offset from the rectangle center toward ``+y``.
+
+    ``+y`` is down. A flat stored on a clockwise outline walks away from the
+    clipped corner, so a left-edge flat is shifted down and a right-edge flat
+    is shifted up.
+    """
+    center = _rectangle_center(rectangle)
+    return _midpoint(chord)[1] - center[1]
+
+
+def _seat_polarity(offset_a: float, offset_b: float) -> float:
+    """Return the sign applied to the overlapping flat's translation.
+
+    Opposite offsets leave the reference unchanged. Agreeing offsets follow
+    the corner rather than the stored walk: down keeps the opposed seat, and
+    up reverses it.
+    """
+    if offset_a * offset_b <= 0.0:
+        return 1.0
+    if offset_a > 0.0:
+        return 1.0
+    return -1.0
+
+
 def _opposed_seat(
     seats: tuple[tuple[float, Point], ...],
     chord_translation: Point,
+    polarity: float,
 ) -> tuple[float, Point] | None:
-    """Return an exterior seat opposed to ``chord_translation``.
+    """Return an exterior seat opposed to the flat, corrected by ``polarity``.
 
     Seats that turn the fragment over are dropped when an unturned seat
     exists. The chord alignment of a long flat points through the fragment.
     The opposite unturned seat puts the contact on the other side of that
-    alignment. Equal opposite sides of a rectangle remain a tie the flat
-    cannot break.
+    alignment. ``polarity`` is ``-1`` when both flats are shifted up, so a
+    right-edge flat seats the shared cut instead of the outer borders.
     """
     if not seats:
         return None
     nearest = min(abs(rotation) for rotation, _translation in seats)
     unturned = tuple(seat for seat in seats if abs(abs(seat[0]) - nearest) <= 1e-3)
-    reference = _unit(chord_translation)
+    direction_scale = _unit(chord_translation)
+    reference = (polarity * direction_scale[0], polarity * direction_scale[1])
 
     def sort_key(seat: tuple[float, Point]) -> tuple[float, float, float]:
         _rotation, translation = seat
@@ -854,11 +893,19 @@ def _candidates(
                         if rect_a is not None and rect_b is not None
                         else ()
                     )
+                    polarity = (
+                        _seat_polarity(
+                            _flat_offset_y(chord_a, rect_a),
+                            _flat_offset_y(forward, rect_b),
+                        )
+                        if rect_a is not None and rect_b is not None
+                        else 1.0
+                    )
                     for pairing_index, _chord_b in enumerate(pairings):
                         rotation, translation = motions[pairing_index]
                         thickness = thicknesses[pairing_index]
                         if pairing_index == seated and thickness > _TOUCH_MM and seats:
-                            opposed = _opposed_seat(seats, translation)
+                            opposed = _opposed_seat(seats, translation, polarity)
                             if opposed is not None:
                                 rotation, translation = opposed
                                 thickness = _overlap_thickness(
