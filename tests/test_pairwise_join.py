@@ -541,3 +541,74 @@ def test_an_overlapping_flat_is_replaced_by_the_opposed_exterior_seat() -> None:
     assert math.isclose(transform.rotation_radians, 0.0, abs_tol=1e-9) or math.isclose(
         abs(transform.rotation_radians), math.pi, abs_tol=1e-9
     )
+
+
+def _centered_rectangle(width: float, height: float) -> tuple[Point, ...]:
+    half_width = width / 2.0
+    half_height = height / 2.0
+    return (
+        (-half_width, -half_height),
+        (half_width, -half_height),
+        (half_width, half_height),
+        (-half_width, half_height),
+    )
+
+
+def _lesser_bottom_on_greater_top(chord: Chord) -> float:
+    """Return the seated translation along ``+y`` from the lesser id.
+
+    Both rectangles share the flat. Heights differ by one millimetre, so the
+    best-matched sides are the equal short sides. ``+y`` is down. A negative
+    value puts the lesser id's bottom against the other rectangle's top.
+    """
+    project_id = uuid.UUID("00000000-0000-0000-0000-0000000000aa")
+    first = _fragment(project_id, "piece-a", "catalogued")
+    second = _fragment(project_id, "piece-b", "confirmed")
+    lesser, greater = sorted((first, second), key=lambda item: item.id)
+    lesser_chords = _chords(
+        lesser, _edge_envelope(b"bias-lesser"), (chord,), calibrate=True
+    )
+    greater_chords = _chords(
+        greater, _edge_envelope(b"bias-greater"), (chord,), calibrate=True
+    )
+    lesser_chords = FragmentChords(
+        fragment=lesser_chords.fragment,
+        frame=lesser_chords.frame,
+        edges=lesser_chords.edges,
+        envelope=lesser_chords.envelope,
+        observation=lesser_chords.observation,
+        transform=lesser_chords.transform,
+        outline=_centered_rectangle(44.0, 60.0),
+    )
+    greater_chords = FragmentChords(
+        fragment=greater_chords.fragment,
+        frame=greater_chords.frame,
+        edges=greater_chords.edges,
+        envelope=greater_chords.envelope,
+        observation=greater_chords.observation,
+        transform=greater_chords.transform,
+        outline=_centered_rectangle(44.0, 59.0),
+    )
+    result = _propose(PairwiseJoinLog(), (lesser_chords, greater_chords))
+    assert isinstance(result, PairwiseJoins)
+    join, transform = max(
+        zip(result.joins, result.transforms, strict=True),
+        key=lambda item: item[0].scores[0].value,
+    )
+    assert join.fragment_a_id == lesser.id
+    assert math.isclose(transform.rotation_radians, 0.0, abs_tol=1e-6)
+    return transform.translation_y
+
+
+def test_agreeing_flats_seat_the_same_end_on_either_page_edge() -> None:
+    # +y is down. A clockwise outline stores a left-edge flat pointing up and
+    # a right-edge flat pointing down. Both flats are shifted toward that
+    # corner. The seat keeps the lesser id's bottom against the other top on
+    # either edge. Following the stored walk would reverse the right edge and
+    # meet the outer borders instead.
+    right_edge: Chord = ((16.0, -20.0), (16.0, -6.0))
+    left_edge: Chord = ((-16.0, 20.0), (-16.0, 6.0))
+    right_y = _lesser_bottom_on_greater_top(right_edge)
+    left_y = _lesser_bottom_on_greater_top(left_edge)
+    assert right_y < -40.0
+    assert left_y < -40.0

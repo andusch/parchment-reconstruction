@@ -8,11 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 NOTE = ROOT / "docs" / "ragged-synthetic-demo.md"
 SCRIPT = ROOT / "samples" / "ragged-leaf" / "run.sh"
-PIN = "2fe603838c5e160c3a1e3d6a65a3d487d8f1b28b"
+PIN = "5b668f1ffdb78d4fbe5781c09a006038db29ecae"
 PREVIOUS_PIN = "8a6c2e569ed8107cd47848e29005e528ec397a8e"
-# git rev-parse 2fe603838c5e160c3a1e3d6a65a3d487d8f1b28b:src/prw
+# git rev-parse 5b668f1ffdb78d4fbe5781c09a006038db29ecae:src/prw
 # CI checks out with fetch-depth 1, so that commit object may be absent.
-SRC_PRW_TREE = "bd4a0645c85e71186cd6c2bdad51fccf870baf34"
+SRC_PRW_TREE = "b4cc2267b83594f68b9ec884669c0ba57cdfd2c7"
 
 
 def _measured_record() -> dict[str, object]:
